@@ -44,7 +44,7 @@ text_frame.pack(side="left", fill="both", expand=True)
 check_button = tk.Button(button_frame, text='Check', font=('Calibri', 17, 'bold'), pady=3, width=16,
                          command=lambda: ThreadPoolExecutor().submit(lambda: functions.check_button_click(check_button, save_button, text_frame, table)))
 save_button = tk.Button(button_frame, text='Save', font=('Calibri', 17, 'bold'), pady=3, width=16, command=lambda: functions.save_button_click(text_widget))
-exit_button = tk.Button(button_frame, text='Exit', font=('Calibri', 17, 'bold'), pady=3, width=16, command=window.destroy)
+exit_button = tk.Button(button_frame, text='Exit', font=('Calibri', 17, 'bold'), pady=3, width=16, command=lambda: functions.close(True, window))
 check_button.pack(side='left', fill='x', expand=True)
 save_button.pack(side='left', fill='x', expand=True)
 exit_button.pack(side='left', fill='x', expand=True)

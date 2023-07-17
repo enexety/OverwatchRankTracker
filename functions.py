@@ -156,7 +156,7 @@ def get_content(battle_tags, table):
 def process_get_content(unit):
     """Get content from API and return this data"""
 
-    # values
+    # variables
     nickname = unit.split("-")[0]
     tank_rating = '-'
     damage_rating = '-'
@@ -226,3 +226,8 @@ def process_get_content(unit):
     except KeyError:
         messagebox.showerror('Error', f'{unit}: {response["error"]}.')
         return
+
+
+def close(close_app: bool, window=None):
+    if close_app:
+        window.destroy()
