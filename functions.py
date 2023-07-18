@@ -42,11 +42,11 @@ def save_button_click(text_widget):
         f.write(data)
 
 
-def links_button_click(save_button, table, text_frame):
+def links_button_click(save_button, table, text_frame, text_widget):
     """Open text-widget, change "Link" button to "Save" button"""
 
     # change button
-    save_button.configure(text='Save', command=save_button_click)
+    save_button.configure(text='Save', command=lambda: save_button_click(text_widget))
 
     # remove table-widget
     table.pack_forget()
@@ -92,7 +92,7 @@ def create_table_widget(table):
     table.tag_configure('Private', background='#460000')
 
 
-def check_button_click(check_button, save_button, text_frame, table):
+def check_button_click(check_button, save_button, text_frame, table, text_widget):
     """Performs a series of actions to retrieve information about each user entered in the text widget field"""
 
     check_button.configure(state='disabled')  # block button
@@ -100,7 +100,7 @@ def check_button_click(check_button, save_button, text_frame, table):
         with open('saved_battle_tags.json', 'r') as file:
 
             # change button
-            save_button.configure(text='Links', command=lambda: links_button_click(save_button, table, text_frame))
+            save_button.configure(text='Links', command=lambda: links_button_click(save_button, table, text_frame, text_widget))
 
             # change widget on table
             text_frame.pack_forget()
@@ -226,8 +226,3 @@ def process_get_content(unit):
     except KeyError:
         messagebox.showerror('Error', f'{unit}: {response["error"]}.')
         return
-
-
-def close(close_app: bool, window=None):
-    if close_app:
-        window.destroy()
