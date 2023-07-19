@@ -9,8 +9,7 @@ import functions
 # TODO:
 #  1. Question window before exit app > save information in text-widget or not
 #  2. Multitasking
-#  3. Fix error > Click check > Click Exit
-#  4. Fix error > Click check > Click Links
+#  3. Fix flags "user_want_stop"
 
 # create main window
 window = tk.Tk()
@@ -18,6 +17,7 @@ window.title('Overwatch Rank Tracker')
 window.geometry('800x600')
 window.configure(bg='#2B2B2B')
 window.minsize(800, 600)
+window.protocol("WM_DELETE_WINDOW", lambda: os.kill(os.getpid(), signal.SIGTERM))  # custom close
 
 # set style for window
 style = ttk.Style(window)

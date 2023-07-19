@@ -1,11 +1,15 @@
+import datetime
+import time
 from tkinter import ttk, messagebox
 import tkinter as tk
 import requests
+from concurrent.futures import ThreadPoolExecutor
 
 # create global variables
 public_profiles = []
 limited_profiles = []
 private_profiles = []
+user_want_stop = False
 
 
 def add_information_text_widget(text_widget):
@@ -44,6 +48,10 @@ def save_button_click(text_widget):
 
 def links_button_click(save_button, table, text_frame, text_widget):
     """Open text-widget, change "Link" button to "Save" button"""
+
+    # flag for stop check
+    global user_want_stop
+    user_want_stop = True
 
     # change button
     save_button.configure(text='Save', command=lambda: save_button_click(text_widget))
@@ -96,6 +104,10 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
     """Performs a series of actions to retrieve information about each user entered in the text widget field"""
 
     check_button.configure(state='disabled')  # block button
+
+    # temporarily
+    start_time = time.time()
+
     try:
         with open('saved_battle_tags.json', 'r') as file:
 
@@ -117,13 +129,19 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
     # when file with battle-tags not exist
     except FileNotFoundError:
         check_button.configure(state='normal')  # unblock button
-        messagebox.showerror('Error', 'List of battle-tags is empty!\nPlease click "save" button if you have not already')
+        ThreadPoolExecutor().submit(lambda: error_window('Error', 'List of battle-tags is empty!\nPlease click "save" button if you have not already'))
+
+    # temporarily
+    print(f"Time spend: {datetime.timedelta(seconds=int(time.time() - start_time))}.\nAverage time = 0:00:16.")
 
 
 def get_content(battle_tags, table):
     """Get content > record on right order > push to table"""
     if not battle_tags:
-        messagebox.showerror('Error', 'List of battle tags is empty!')
+        if user_want_stop:
+            return
+        ThreadPoolExecutor().submit(lambda: error_window('Error', 'List of battle tags is empty!'))
+
     else:
 
         # clear content from lists
@@ -133,6 +151,10 @@ def get_content(battle_tags, table):
 
         # add content in lists
         for i in battle_tags:
+
+            if user_want_stop:
+                return
+
             information = process_get_content(i)
 
             # record 3 different types to the relevant lists
@@ -143,6 +165,9 @@ def get_content(battle_tags, table):
                     limited_profiles.append(information)
                 else:
                     private_profiles.append(information)
+
+        if user_want_stop:
+            return
 
         # push content in the right order
         for unit in public_profiles:
@@ -165,6 +190,9 @@ def process_get_content(unit):
     win_rate = '-'
     kd = '-'
     season = '-'
+
+    if user_want_stop:
+        return
 
     # get content from API
     response = requests.get(f'https://overfast-api.tekrop.fr/players/{unit}').json()
@@ -196,6 +224,9 @@ def process_get_content(unit):
                         tank_division_tier = str(response['summary']['competitive']['pc']['tank']['tier'])
                         tank_rating = tank_division + '-' + tank_division_tier
 
+                    if user_want_stop:
+                        return
+
                     # damage rating
                     if type(response['summary']['competitive']['pc']['damage']) is dict:
                         damage_division = str(response['summary']['competitive']['pc']['damage']['division']).capitalize()
@@ -212,7 +243,9 @@ def process_get_content(unit):
 
                 # possibly could happen if no 'pc' stats
                 except Exception as e:
-                    messagebox.showerror(f'{unit}', f'Something went wrong: {e}')
+                    if user_want_stop:
+                        return
+                    ThreadPoolExecutor().submit(lambda: error_window(f'{unit}', f'Something went wrong: {e}'))
 
             else:  # no competitive
                 status = 'Limited'
@@ -224,5 +257,10 @@ def process_get_content(unit):
 
     # it happens when could not get blizzard page
     except KeyError:
-        messagebox.showerror('Error', f'{unit}: {response["error"]}.')
+        if user_want_stop is not True:
+            ThreadPoolExecutor().submit(lambda: error_window('Error', f'{unit}: Timeout exceeded.'))
         return
+
+
+def error_window(title: str, text: str):
+    return messagebox.showerror(title, text)
