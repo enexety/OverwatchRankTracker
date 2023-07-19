@@ -103,6 +103,7 @@ def create_table_widget(table):
 def check_button_click(check_button, save_button, text_frame, table, text_widget):
     """Performs a series of actions to retrieve information about each user entered in the text widget field"""
 
+    global user_want_stop
     check_button.configure(state='disabled')  # block button
 
     # temporarily
@@ -123,20 +124,27 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
             if battle_tags:
                 battle_tags = battle_tags.split(',')
                 battle_tags = [unit.strip() for unit in battle_tags if unit.strip() != '']
-                get_content(battle_tags, table)
+                if not user_want_stop:
+                    get_content(battle_tags, table)
             check_button.configure(state='normal')  # unblock button
 
     # when file with battle-tags not exist
     except FileNotFoundError:
         check_button.configure(state='normal')  # unblock button
-        ThreadPoolExecutor().submit(lambda: error_window('Error', 'List of battle-tags is empty!\nPlease click "save" button if you have not already'))
+        if not user_want_stop:
+            ThreadPoolExecutor().submit(lambda: error_window('Error', 'List of battle-tags is empty!\nPlease click "save" button if you have not already'))
+
+    user_want_stop = False
 
     # temporarily
-    print(f"Time spend: {datetime.timedelta(seconds=int(time.time() - start_time))}.\nAverage time = 0:00:16.")
+    print(f"Time spend: {datetime.timedelta(seconds=int(time.time() - start_time))}.\nAverage time without TimeOut: 0:00:05")
 
 
 def get_content(battle_tags, table):
     """Get content > record on right order > push to table"""
+
+    global user_want_stop
+
     if not battle_tags:
         if user_want_stop:
             return
@@ -152,10 +160,10 @@ def get_content(battle_tags, table):
         # add content in lists
         for i in battle_tags:
 
+            information = process_get_content(i)
+
             if user_want_stop:
                 return
-
-            information = process_get_content(i)
 
             # record 3 different types to the relevant lists
             if information:
@@ -171,15 +179,23 @@ def get_content(battle_tags, table):
 
         # push content in the right order
         for unit in public_profiles:
+            if user_want_stop:
+                return
             table.insert('', tk.END, values=unit, tags=['Public'])
         for unit in limited_profiles:
+            if user_want_stop:
+                return
             table.insert('', tk.END, values=unit, tags=['Limited'])
         for unit in private_profiles:
+            if user_want_stop:
+                return
             table.insert('', tk.END, values=unit, tags=['Private'])
 
 
 def process_get_content(unit):
     """Get content from API and return this data"""
+
+    global user_want_stop
 
     # variables
     nickname = unit.split("-")[0]
