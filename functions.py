@@ -1,3 +1,4 @@
+import concurrent
 import datetime
 import time
 from tkinter import ttk, messagebox
@@ -106,9 +107,6 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
     global user_want_stop
     check_button.configure(state='disabled')  # block button
 
-    # temporarily
-    start_time = time.time()
-
     try:
         with open('saved_battle_tags.json', 'r') as file:
 
@@ -136,9 +134,6 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
 
     user_want_stop = False
 
-    # temporarily
-    print(f"Time spend: {datetime.timedelta(seconds=int(time.time() - start_time))}.\nAverage time without TimeOut: 0:00:05")
-
 
 def get_content(battle_tags, table):
     """Get content > record on right order > push to table"""
@@ -146,8 +141,12 @@ def get_content(battle_tags, table):
     global user_want_stop
 
     if not battle_tags:
+
+        # exit if needed
         if user_want_stop:
             return
+
+        # error no battle tags
         ThreadPoolExecutor().submit(lambda: error_window('Error', 'List of battle tags is empty!'))
 
     else:
@@ -157,11 +156,11 @@ def get_content(battle_tags, table):
         public_profiles.clear()
         limited_profiles.clear()
 
-        # add content in lists
-        for i in battle_tags:
+        def request_processing(tag):
+            """add information in 3 lists"""
+            information = process_get_content(tag)
 
-            information = process_get_content(i)
-
+            # if needed exit
             if user_want_stop:
                 return
 
@@ -173,6 +172,17 @@ def get_content(battle_tags, table):
                     limited_profiles.append(information)
                 else:
                     private_profiles.append(information)
+
+        # if code have problems change count max_workers, recommend maximum 6
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+            futures = [executor.submit(request_processing, i) for i in battle_tags]
+
+            # handle exceptions if any occur during the execution of threads
+            for future, battle_tag in zip(futures, battle_tags):
+                try:
+                    future.result()
+                except Exception as e:
+                    ThreadPoolExecutor().submit(lambda: error_window(f'{battle_tag}', f'Something went wrong: {e}'))
 
         if user_want_stop:
             return

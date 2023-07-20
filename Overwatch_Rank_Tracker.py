@@ -8,8 +8,7 @@ import functions
 
 # TODO:
 #  1. Question window before exit app > save information in text-widget or not
-#  2. Multitasking
-#  3. Fix flags "user_want_stop"
+#  2. User should be able to change the number max_workers, limits 1-6
 
 # create main window
 window = tk.Tk()
