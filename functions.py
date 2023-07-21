@@ -1,32 +1,25 @@
 import concurrent
-import datetime
-import time
 from tkinter import ttk, messagebox
 import tkinter as tk
 import requests
 from concurrent.futures import ThreadPoolExecutor
+import json
 
 # create global variables
 public_profiles = []
 limited_profiles = []
 private_profiles = []
 user_want_stop = False
+max_workers = None
 
 
-def add_information_text_widget(text_widget):
-    """if file with battle-tags exist > add this battle-tags in text-widget
-       if file with battle-tags not exist > it is ignored"""
+def overwriting_file():
+    with open('settings_and_battle_tags.json', 'w') as file:
+        json.dump({"Settings": {"max_workers": 6}, "Battle-tags": []}, file, indent=2)
 
-    # add battle tags in text-widget
-    try:
-        with open('saved_battle_tags.json', 'r') as f:
-            data = f.read().strip()
-            if data:
-                text_widget.insert('1.0', data)
 
-    # when file not exist
-    except FileNotFoundError:
-        pass
+def error_window(title: str, text: str):
+    return messagebox.showerror(title, text)
 
 
 def create_scrollbar(frame, widget):
@@ -34,34 +27,6 @@ def create_scrollbar(frame, widget):
     scrollbar = ttk.Scrollbar(frame, command=widget.yview)
     scrollbar.pack(side='right', fill='y', pady=10)
     widget.config(yscrollcommand=scrollbar.set)
-
-
-def save_button_click(text_widget):
-    """Saves information from text-widget"""
-
-    # get information from text-widget
-    data = text_widget.get('1.0', tk.END)
-
-    # save the information
-    with open('saved_battle_tags.json', 'w') as f:
-        f.write(data)
-
-
-def links_button_click(save_button, table, text_frame, text_widget):
-    """Open text-widget, change "Link" button to "Save" button"""
-
-    # flag for stop check
-    global user_want_stop
-    user_want_stop = True
-
-    # change button
-    save_button.configure(text='Save', command=lambda: save_button_click(text_widget))
-
-    # remove table-widget
-    table.pack_forget()
-
-    # open text-widget
-    text_frame.pack(side="left", fill="both", expand=True)
 
 
 def create_table_widget(table):
@@ -101,6 +66,74 @@ def create_table_widget(table):
     table.tag_configure('Private', background='#460000')
 
 
+def add_information_text_widget(text_widget):
+    """If the file with Battle-tags exists > add these Battle-tags to the text-widget
+       If the file with Battle-tags does not exist > it is ignored"""
+
+    try:
+        with open('settings_and_battle_tags.json', 'r') as file:
+
+            # read full file
+            data = json.load(file)
+
+            # add battle tags in text-widget
+            battle_tags = data.get("Battle-tags", [])
+            if battle_tags:
+                formatted_tags = ",\n".join(battle_tags)  # convenient visual design
+                text_widget.insert('1.0', formatted_tags)
+
+            # set settings
+            global max_workers
+            max_workers = data['Settings']['max_workers']
+
+    # file changed outside - rewrite the file
+    except json.decoder.JSONDecodeError:
+        overwriting_file()
+
+        # set initial settings
+        max_workers = 6
+
+
+def save_button_click(text_widget):
+    """Updates the Battle-tags list based on user input in the text-widget"""
+
+    data = text_widget.get('1.0', tk.END).strip()
+    if data:
+        # Split data by commas, remove extra spaces in each Battle-tag
+        new_battle_tags = [tag.strip() for tag in data.split(",")]
+
+        # Load existing data, if the file exists
+        try:
+            with open('settings_and_battle_tags.json', 'r') as file:
+                existing_data = json.load(file)
+        except FileNotFoundError:
+            existing_data = {}
+
+        # Update the Battle-tags list in the existing data
+        existing_data["Battle-tags"] = new_battle_tags
+
+        # Save the updated data to the file
+        with open('settings_and_battle_tags.json', 'w') as file:
+            json.dump(existing_data, file, indent=2)
+
+
+def links_button_click(save_button, table, text_frame, text_widget):
+    """Open text-widget, change "Link" button to "Save" button"""
+
+    # flag for stop check
+    global user_want_stop
+    user_want_stop = True
+
+    # change button
+    save_button.configure(text='Save', command=lambda: save_button_click(text_widget))
+
+    # remove table-widget
+    table.pack_forget()
+
+    # open text-widget
+    text_frame.pack(side="left", fill="both", expand=True)
+
+
 def check_button_click(check_button, save_button, text_frame, table, text_widget):
     """Performs a series of actions to retrieve information about each user entered in the text widget field"""
 
@@ -108,7 +141,7 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
     check_button.configure(state='disabled')  # block button
 
     try:
-        with open('saved_battle_tags.json', 'r') as file:
+        with open('settings_and_battle_tags.json', 'r') as file:
 
             # change button
             save_button.configure(text='Links', command=lambda: links_button_click(save_button, table, text_frame, text_widget))
@@ -136,18 +169,18 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
 
 
 def get_content(battle_tags, table):
-    """Get content > record on right order > push to table"""
+    """1-st process of check_button_click
+       Get content > record on right order > push to table"""
 
     global user_want_stop
 
+    # error no battle tags
     if not battle_tags:
+        ThreadPoolExecutor().submit(lambda: error_window('Error', 'List of battle tags is empty!'))
 
         # exit if needed
         if user_want_stop:
             return
-
-        # error no battle tags
-        ThreadPoolExecutor().submit(lambda: error_window('Error', 'List of battle tags is empty!'))
 
     else:
 
@@ -155,9 +188,11 @@ def get_content(battle_tags, table):
         private_profiles.clear()
         public_profiles.clear()
         limited_profiles.clear()
+        error_occurred = False  # not to create more than one identical error window
 
         def request_processing(tag):
-            """add information in 3 lists"""
+            """2-nd process of check_button_click
+               Add information in 3 lists"""
             information = process_get_content(tag)
 
             # if needed exit
@@ -173,16 +208,20 @@ def get_content(battle_tags, table):
                 else:
                     private_profiles.append(information)
 
-        # if code have problems change count max_workers, recommend maximum 6
-        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+        # multithreaded request retrieval
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [executor.submit(request_processing, i) for i in battle_tags]
 
             # handle exceptions if any occur during the execution of threads
             for future, battle_tag in zip(futures, battle_tags):
                 try:
                     future.result()
-                except Exception as e:
-                    ThreadPoolExecutor().submit(lambda: error_window(f'{battle_tag}', f'Something went wrong: {e}'))
+
+                # one error-window no more
+                except requests.RequestException:
+                    if not error_occurred:
+                        error_occurred = True
+                        ThreadPoolExecutor().submit(lambda: error_window('Error', 'Too many requests: Reduce the number of requests in the settings'))
 
         if user_want_stop:
             return
@@ -203,7 +242,8 @@ def get_content(battle_tags, table):
 
 
 def process_get_content(unit):
-    """Get content from API and return this data"""
+    """3-rd process of check_button_click
+       Get content from API and return this data"""
 
     global user_want_stop
 
@@ -286,7 +326,3 @@ def process_get_content(unit):
         if user_want_stop is not True:
             ThreadPoolExecutor().submit(lambda: error_window('Error', f'{unit}: Timeout exceeded.'))
         return
-
-
-def error_window(title: str, text: str):
-    return messagebox.showerror(title, text)

@@ -8,7 +8,9 @@ import functions
 
 # TODO:
 #  1. Question window before exit app > save information in text-widget or not
-#  2. User should be able to change the number max_workers, limits 1-6
+#  2. Make button "Settings" penultimate, add max_workers 1-6
+#  3. Increase the length of the columns if the application window becomes larger
+#  4. Settings in file
 
 # create main window
 window = tk.Tk()
