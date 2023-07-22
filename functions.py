@@ -70,15 +70,15 @@ def create_table_widget(table):
         table.delete(*table.get_children())
 
     # set parameters
-    table.column('Status', minwidth=47, width=69, anchor='center', stretch=False)
-    table.column('Nickname', minwidth=80, width=102, anchor='center', stretch=False)
-    table.column('Season', minwidth=47, width=69, anchor='center', stretch=False)
-    table.column('Tank', minwidth=87, width=109, anchor='center', stretch=False)
-    table.column('Damage', minwidth=87, width=109, anchor='center', stretch=False)
-    table.column('Support', minwidth=87, width=109, anchor='center', stretch=False)
-    table.column('Play time', minwidth=72, width=94, anchor='center', stretch=False)
-    table.column('Win rate', minwidth=54, width=76, anchor='center', stretch=False)
-    table.column('KD', minwidth=37, width=59, anchor='center', stretch=False)
+    table.column('Status', minwidth=47, width=69, anchor='center', stretch=True)
+    table.column('Nickname', minwidth=80, width=102, anchor='center', stretch=True)
+    table.column('Season', minwidth=47, width=69, anchor='center', stretch=True)
+    table.column('Tank', minwidth=87, width=109, anchor='center', stretch=True)
+    table.column('Damage', minwidth=87, width=109, anchor='center', stretch=True)
+    table.column('Support', minwidth=87, width=109, anchor='center', stretch=True)
+    table.column('Play time', minwidth=72, width=94, anchor='center', stretch=True)
+    table.column('Win rate', minwidth=54, width=76, anchor='center', stretch=True)
+    table.column('KD', minwidth=37, width=59, anchor='center', stretch=True)
 
     # push table and columns
     table.heading('Status', text='Status')

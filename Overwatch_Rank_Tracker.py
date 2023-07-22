@@ -4,9 +4,6 @@ from concurrent.futures import ThreadPoolExecutor
 
 import functions
 
-# TODO:
-#  1. Increase the length of the columns if the application window becomes larger
-
 # create main window
 window = tk.Tk()
 window.title('Overwatch Rank Tracker')
