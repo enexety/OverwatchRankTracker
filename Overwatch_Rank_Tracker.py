@@ -8,9 +8,7 @@ import functions
 
 # TODO:
 #  1. Question window before exit app > save information in text-widget or not
-#  2. Make button "Settings" penultimate, add max_workers 1-6
-#  3. Increase the length of the columns if the application window becomes larger
-#  4. Settings in file
+#  2. Increase the length of the columns if the application window becomes larger
 
 # create main window
 window = tk.Tk()
@@ -47,9 +45,11 @@ text_frame.pack(side="left", fill="both", expand=True)
 check_button = tk.Button(button_frame, text='Check', font=('Calibri', 17, 'bold'), pady=3, width=16,
                          command=lambda: ThreadPoolExecutor().submit(lambda: functions.check_button_click(check_button, save_button, text_frame, table, text_widget)))
 save_button = tk.Button(button_frame, text='Save', font=('Calibri', 17, 'bold'), pady=3, width=16, command=lambda: functions.save_button_click(text_widget))
+settings_button = tk.Button(button_frame, text='Settings', font=('Calibri', 17, 'bold'), pady=3, width=16, command=lambda: functions.open_settings_window(window))
 exit_button = tk.Button(button_frame, text='Exit', font=('Calibri', 17, 'bold'), pady=3, width=16, command=lambda: os.kill(os.getpid(), signal.SIGTERM))
 check_button.pack(side='left', fill='x', expand=True)
 save_button.pack(side='left', fill='x', expand=True)
+settings_button.pack(side='left', fill='x', expand=True)
 exit_button.pack(side='left', fill='x', expand=True)
 
 # create text-widget

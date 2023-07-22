@@ -4,21 +4,50 @@ import tkinter as tk
 import requests
 from concurrent.futures import ThreadPoolExecutor
 import json
+import sys
 
 # create global variables
 public_profiles = []
 limited_profiles = []
 private_profiles = []
 user_want_stop = False
-max_workers = None
+
+# initial settings
+max_workers = 6
 
 
-def overwriting_file():
-    with open('settings_and_battle_tags.json', 'w') as file:
-        json.dump({"Settings": {"max_workers": 6}, "Battle-tags": []}, file, indent=2)
+def overwriting_file(max_workers_bool: bool = False, battle_tags_bool: bool = False, battle_tags=None, full_rewrite: bool = False):
+    """Overwrite file or certain blocks in file"""
+
+    if battle_tags is None:
+        battle_tags = []
+
+    # file exists
+    try:
+
+        # call error for rewrite file
+        if full_rewrite:
+            raise FileNotFoundError
+
+        # read file and rewrite certain settings
+        with open("settings_and_battle_tags.json", "r") as file:
+            data = json.load(file)
+        if max_workers_bool:
+            data["Settings"]["max_workers"] = int(max_workers)
+        if battle_tags_bool:
+            data["Battle_tags"] = battle_tags
+        if max_workers_bool or battle_tags_bool:
+            with open('settings_and_battle_tags.json', 'w') as file:
+                json.dump(data, file, indent=2)
+
+    # file do not exist
+    except FileNotFoundError:
+        with open('settings_and_battle_tags.json', 'w') as file:
+            json.dump({"Settings": {"max_workers": int(max_workers)}, "Battle-tags": battle_tags}, file, indent=2)
 
 
 def error_window(title: str, text: str):
+    """Call error window"""
     return messagebox.showerror(title, text)
 
 
@@ -86,35 +115,22 @@ def add_information_text_widget(text_widget):
             global max_workers
             max_workers = data['Settings']['max_workers']
 
-    # file changed outside - rewrite the file
-    except json.decoder.JSONDecodeError:
-        overwriting_file()
-
-        # set initial settings
-        max_workers = 6
+    # file changed outside or not exist - rewrite the file
+    except (json.decoder.JSONDecodeError, FileNotFoundError):
+        overwriting_file(full_rewrite=True)
 
 
 def save_button_click(text_widget):
-    """Updates the Battle-tags list based on user input in the text-widget"""
+    """Save battle-tags from text-widget"""
 
+    # get data from text-widget
     data = text_widget.get('1.0', tk.END).strip()
-    if data:
-        # Split data by commas, remove extra spaces in each Battle-tag
-        new_battle_tags = [tag.strip() for tag in data.split(",")]
 
-        # Load existing data, if the file exists
-        try:
-            with open('settings_and_battle_tags.json', 'r') as file:
-                existing_data = json.load(file)
-        except FileNotFoundError:
-            existing_data = {}
+    # split data by commas, remove extra spaces in each battle-tag
+    new_battle_tags = [tag.strip() for tag in data.split(",")]
 
-        # Update the Battle-tags list in the existing data
-        existing_data["Battle-tags"] = new_battle_tags
-
-        # Save the updated data to the file
-        with open('settings_and_battle_tags.json', 'w') as file:
-            json.dump(existing_data, file, indent=2)
+    # rewrite file with new datas
+    overwriting_file(battle_tags=new_battle_tags)
 
 
 def links_button_click(save_button, table, text_frame, text_widget):
@@ -142,6 +158,7 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
 
     try:
         with open('settings_and_battle_tags.json', 'r') as file:
+            data = json.load(file)
 
             # change button
             save_button.configure(text='Links', command=lambda: links_button_click(save_button, table, text_frame, text_widget))
@@ -151,10 +168,8 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
             create_table_widget(table)
 
             # push information on table
-            battle_tags = file.read().strip()
-            if battle_tags:
-                battle_tags = battle_tags.split(',')
-                battle_tags = [unit.strip() for unit in battle_tags if unit.strip() != '']
+            battle_tags = data.get("Battle-tags")
+            if len(battle_tags) > 0:
                 if not user_want_stop:
                     get_content(battle_tags, table)
             check_button.configure(state='normal')  # unblock button
@@ -326,3 +341,53 @@ def process_get_content(unit):
         if user_want_stop is not True:
             ThreadPoolExecutor().submit(lambda: error_window('Error', f'{unit}: Timeout exceeded.'))
         return
+
+
+def open_settings_window(window):
+    """Setting window"""
+    global max_workers
+
+    # set window-setting
+    settings_window = tk.Toplevel(window)
+    settings_window.title("Settings")
+    settings_window.resizable(False, False)  # prevent window resizing
+    settings_window.attributes('-topmost', True)  # window on top
+    settings_window.grab_set()  # make the settings window modal
+
+    # set size
+    settings_window_width = 300
+    settings_window_height = 150
+    setting_screen_width = settings_window.winfo_screenwidth()
+    setting_screen_height = settings_window.winfo_screenheight()
+    setting_x_cord = int((setting_screen_width / 2) - (settings_window_width / 2))
+    setting_y_cord = int((setting_screen_height / 2) - (settings_window_height / 2))
+    settings_window.geometry(f"{settings_window_width}x{settings_window_height}+{setting_x_cord}+{setting_y_cord}")
+
+    settings_window.protocol("WM_DELETE_WINDOW", settings_window.destroy)
+
+    # empty cell for top indent
+    empty_label_top = tk.Label(settings_window)
+    empty_label_top.grid(row=0, column=0)
+
+    # text "Number of requests" and field for entering number
+    label = tk.Label(settings_window, text="Number of requests")
+    label.grid(row=1, column=0, padx=5)
+    num_requests_var = tk.StringVar(value=str(max_workers))
+    entry = tk.Spinbox(settings_window, from_=1, to=6, textvariable=num_requests_var, width=5)
+    entry.grid(row=1, column=1, padx=5)
+
+    # button save
+    save_button_width = 8
+    x_button = settings_window_width // 2
+    y_button = settings_window_height - 30  # indent down
+    setting_save_button = ttk.Button(settings_window, text="Save", width=save_button_width, command=lambda: settings_save_click())
+    setting_save_button.place(x=x_button, y=y_button, anchor='center')
+
+    # top right buttons style
+    settings_window.wm_attributes("-toolwindow", 1) if tk.TkVersion >= 8.5 and sys.platform.startswith('win') else None
+
+    def settings_save_click():
+        global max_workers
+        max_workers = num_requests_var.get()
+        overwriting_file(max_workers_bool=True)
+        settings_window.destroy()
