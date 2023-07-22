@@ -156,6 +156,7 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
     """Performs a series of actions to retrieve information about each user entered in the text widget field"""
 
     global user_want_stop
+    user_want_stop = False  # to avoid problems in further clicks
     check_button.configure(state='disabled')  # block button
 
     try:

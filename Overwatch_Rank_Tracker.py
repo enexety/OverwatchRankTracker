@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import functions
 
+
 # create main window
 window = tk.Tk()
 window.title('Overwatch Rank Tracker')
