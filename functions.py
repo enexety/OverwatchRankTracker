@@ -18,6 +18,18 @@ user_want_stop = False
 max_workers = 6
 
 
+def read_file():
+    """Returns the contents of a file"""
+    with open('settings_and_battle_tags.json', 'r') as file:
+        return json.load(file)
+
+
+def write_file(paste):
+    """Record file with new content"""
+    with open('settings_and_battle_tags.json', 'w') as file:
+        json.dump(paste, file, indent=2)
+
+
 def overwriting_file(max_workers_bool: bool = False, battle_tags_bool: bool = False, battle_tags=None, full_rewrite: bool = False):
     """Overwrite file or certain blocks in file"""
 
@@ -32,25 +44,17 @@ def overwriting_file(max_workers_bool: bool = False, battle_tags_bool: bool = Fa
             raise FileNotFoundError
 
         # read file and rewrite certain settings
-        with open("settings_and_battle_tags.json", "r") as file:
-            data = json.load(file)
+        file_content = read_file()
         if max_workers_bool:
-            data["Settings"]["max_workers"] = int(max_workers)
+            file_content["Settings"]["max_workers"] = int(max_workers)
         if battle_tags_bool:
-            data["Battle-tags"] = battle_tags
+            file_content["Battle-tags"] = battle_tags
         if max_workers_bool or battle_tags_bool:
-            with open('settings_and_battle_tags.json', 'w') as file:
-                json.dump(data, file, indent=2)
+            write_file(file_content)
 
     # file do not exist
     except FileNotFoundError:
-        with open('settings_and_battle_tags.json', 'w') as file:
-            json.dump({"Settings": {"max_workers": int(max_workers)}, "Battle-tags": battle_tags}, file, indent=2)
-
-
-def error_window(title: str, text: str):
-    """Call error window"""
-    return messagebox.showerror(title, text)
+        write_file({"Settings": {"max_workers": int(max_workers)}, "Battle-tags": battle_tags})
 
 
 def create_scrollbar(frame, widget):
@@ -102,20 +106,17 @@ def add_information_text_widget(text_widget):
        If the file with Battle-tags does not exist > it is ignored"""
 
     try:
-        with open('settings_and_battle_tags.json', 'r') as file:
+        file_content = read_file()
 
-            # read full file
-            data = json.load(file)
+        # add battle tags in text-widget
+        battle_tags = file_content.get("Battle-tags", [])
+        if battle_tags:
+            formatted_tags = ",\n".join(battle_tags)  # convenient visual design
+            text_widget.insert('1.0', formatted_tags)
 
-            # add battle tags in text-widget
-            battle_tags = data.get("Battle-tags", [])
-            if battle_tags:
-                formatted_tags = ",\n".join(battle_tags)  # convenient visual design
-                text_widget.insert('1.0', formatted_tags)
-
-            # set settings
-            global max_workers
-            max_workers = data['Settings']['max_workers']
+        # set settings
+        global max_workers
+        max_workers = file_content['Settings']['max_workers']
 
     # file changed outside or not exist - rewrite the file
     except (json.decoder.JSONDecodeError, FileNotFoundError):
@@ -160,22 +161,19 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
     check_button.configure(state='disabled')  # block button
 
     try:
-        with open('settings_and_battle_tags.json', 'r') as file:
-            data = json.load(file)
+        # change button
+        save_button.configure(text='Links', command=lambda: links_button_click(save_button, table, text_frame, text_widget))
 
-            # change button
-            save_button.configure(text='Links', command=lambda: links_button_click(save_button, table, text_frame, text_widget))
+        # change widget on table
+        text_frame.pack_forget()
+        create_table_widget(table)
 
-            # change widget on table
-            text_frame.pack_forget()
-            create_table_widget(table)
-
-            # push information on table
-            battle_tags = data.get("Battle-tags")
-            if len(battle_tags) > 0:
-                if not user_want_stop:
-                    get_content(battle_tags, table)
-            check_button.configure(state='normal')  # unblock button
+        # push information on table
+        battle_tags = read_file().get("Battle-tags")
+        if len(battle_tags) > 0:
+            if not user_want_stop:
+                get_content(battle_tags, table)
+        check_button.configure(state='normal')  # unblock button
 
     # when file with battle-tags not exist
     except FileNotFoundError:
@@ -397,7 +395,25 @@ def open_settings_window(window):
         settings_window.destroy()
 
 
+def error_window(title: str, text: str):
+    """Call error window"""
+    return messagebox.showerror(title, text)
+
+
 def exit_main_window(text_widget):
-    if messagebox.askquestion('Exit', 'Are you want to save your battle-tags list?') == 'yes':
-        save_button_click(text_widget)
+    """If you forgot to save the file, you are prompted to do so"""
+
+    # get battle tags from file
+    battle_tags_file = read_file().get("Battle-tags", [])
+
+    # get battle-tags from text-widget
+    data = text_widget.get('1.0', tk.END).strip()
+    battle_tags_widget = [tag.strip() for tag in data.split(",")]  # split data by commas, remove extra spaces in each battle-tag
+
+    # question: save text or not if text-widget content and file content different
+    if set(battle_tags_file) != set(battle_tags_widget):
+        if messagebox.askquestion('Exit', 'Are you want to save your battle-tags list?') == 'yes':
+            save_button_click(text_widget)
+
+    # close
     os.kill(os.getpid(), signal.SIGTERM)
