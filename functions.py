@@ -162,7 +162,7 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
 
     try:
         # change button
-        save_button.configure(text='Links', command=lambda: links_button_click(save_button, table, text_frame, text_widget))
+        save_button.configure(text='Battle-tags', command=lambda: links_button_click(save_button, table, text_frame, text_widget))
 
         # change widget on table
         text_frame.pack_forget()
