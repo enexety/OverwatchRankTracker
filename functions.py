@@ -1,4 +1,6 @@
 import concurrent
+import os
+import signal
 from tkinter import ttk, messagebox
 import tkinter as tk
 import requests
@@ -35,7 +37,7 @@ def overwriting_file(max_workers_bool: bool = False, battle_tags_bool: bool = Fa
         if max_workers_bool:
             data["Settings"]["max_workers"] = int(max_workers)
         if battle_tags_bool:
-            data["Battle_tags"] = battle_tags
+            data["Battle-tags"] = battle_tags
         if max_workers_bool or battle_tags_bool:
             with open('settings_and_battle_tags.json', 'w') as file:
                 json.dump(data, file, indent=2)
@@ -130,7 +132,7 @@ def save_button_click(text_widget):
     new_battle_tags = [tag.strip() for tag in data.split(",")]
 
     # rewrite file with new datas
-    overwriting_file(battle_tags=new_battle_tags)
+    overwriting_file(battle_tags_bool=True, battle_tags=new_battle_tags)
 
 
 def links_button_click(save_button, table, text_frame, text_widget):
@@ -387,7 +389,14 @@ def open_settings_window(window):
     settings_window.wm_attributes("-toolwindow", 1) if tk.TkVersion >= 8.5 and sys.platform.startswith('win') else None
 
     def settings_save_click():
+        """Save max_workers value and destroy window"""
         global max_workers
-        max_workers = num_requests_var.get()
+        max_workers = int(num_requests_var.get())
         overwriting_file(max_workers_bool=True)
         settings_window.destroy()
+
+
+def exit_main_window(text_widget):
+    if messagebox.askquestion('Exit', 'Are you want to save your battle-tags list?') == 'yes':
+        save_button_click(text_widget)
+    os.kill(os.getpid(), signal.SIGTERM)
