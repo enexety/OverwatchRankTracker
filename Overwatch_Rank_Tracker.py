@@ -50,7 +50,6 @@ exit_button.pack(side='left', fill='x', expand=True)
 # create text-widget
 text_widget = tk.Text(text_frame, font=('Calibri', 13, 'bold'), fg='#A0A0A0', insertbackground='white', padx=10, pady=15, bg="#2B2B2B", relief='flat')
 text_widget.pack(side='left', fill='both', expand=True)
-text_widget.pack(side='left', fill='both', expand=True)
 functions.add_information_text_widget(text_widget)
 functions.create_scrollbar(text_frame, text_widget)
 

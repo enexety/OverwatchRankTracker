@@ -35,7 +35,7 @@ To build a standalone executable file using PyInstaller, follow these steps:
 1. Open the command prompt or terminal.
 2. Navigate to the project directory using the `cd` command. For example: `cd /path/to/project`.
 3. Run the following command:
-```pyinstaller --onefile --noconsole --name "Overwatch Rank Tracker" --icon "path_to_icon\OverwatchRankTrackerDesktop_API\resources\icon.ico" Overwatch_Rank_Tracker.py```
+```pyinstaller --onefile --noconsole --name "Overwatch Rank Tracker" --icon "path_to_icon\OverwatchRankTrackerDesktop_API\resources\icon.ico" --distpath "Overwath_Rank_Tracker" Overwatch_Rank_Tracker.py```
 
    Replace `path_to_icon` with the actual path to the icon file on your system.
 4. PyInstaller will generate a standalone executable file in the "dist" directory.
