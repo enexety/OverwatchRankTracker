@@ -4,6 +4,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 import functions
 
+# global variables
+path_to_file = 'settings_and_battle_tags.json'
 
 # create main window
 window = tk.Tk()
@@ -11,7 +13,7 @@ window.title('Overwatch Rank Tracker')
 window.geometry('800x600')
 window.configure(bg='#2B2B2B')
 window.minsize(800, 600)
-window.protocol("WM_DELETE_WINDOW", lambda: functions.exit_main_window(text_widget))  # custom close
+window.protocol("WM_DELETE_WINDOW", lambda: functions.exit_main_window(text_widget=text_widget, path=path_to_file))  # custom close
 
 # set style for window
 style = ttk.Style(window)
@@ -38,10 +40,11 @@ text_frame.pack(side="left", fill="both", expand=True)
 
 # set buttons
 check_button = tk.Button(button_frame, text='Check', font=('Calibri', 17, 'bold'), pady=3, width=16,
-                         command=lambda: ThreadPoolExecutor().submit(lambda: functions.check_button_click(check_button, save_button, text_frame, table, text_widget)))
-save_button = tk.Button(button_frame, text='Save', font=('Calibri', 17, 'bold'), pady=3, width=16, command=lambda: functions.save_button_click(text_widget))
-settings_button = tk.Button(button_frame, text='Settings', font=('Calibri', 17, 'bold'), pady=3, width=16, command=lambda: functions.open_settings_window(window))
-exit_button = tk.Button(button_frame, text='Exit', font=('Calibri', 17, 'bold'), pady=3, width=16, command=lambda: functions.exit_main_window(text_widget))
+                         command=lambda: ThreadPoolExecutor().submit(lambda: functions.check_button_click(check_button=check_button, save_button=save_button, text_frame=text_frame, table=table, text_widget=text_widget,
+                                                                                                          path=path_to_file)))
+save_button = tk.Button(button_frame, text='Save', font=('Calibri', 17, 'bold'), pady=3, width=16, command=lambda: functions.save_button_click(text_widget=text_widget, path=path_to_file))
+settings_button = tk.Button(button_frame, text='Settings', font=('Calibri', 17, 'bold'), pady=3, width=16, command=lambda: functions.open_settings_window(window=window, path=path_to_file))
+exit_button = tk.Button(button_frame, text='Exit', font=('Calibri', 17, 'bold'), pady=3, width=16, command=lambda: functions.exit_main_window(text_widget=text_widget, path=path_to_file))
 check_button.pack(side='left', fill='x', expand=True)
 save_button.pack(side='left', fill='x', expand=True)
 settings_button.pack(side='left', fill='x', expand=True)
@@ -50,8 +53,8 @@ exit_button.pack(side='left', fill='x', expand=True)
 # create text-widget
 text_widget = tk.Text(text_frame, font=('Calibri', 13, 'bold'), fg='#A0A0A0', insertbackground='white', padx=10, pady=15, bg="#2B2B2B", relief='flat')
 text_widget.pack(side='left', fill='both', expand=True)
-functions.add_information_text_widget(text_widget)
-functions.create_scrollbar(text_frame, text_widget)
+functions.add_information_text_widget(text_widget=text_widget, path=path_to_file)
+functions.create_scrollbar(frame=text_frame, widget=text_widget)
 
 # launch
 window.mainloop()

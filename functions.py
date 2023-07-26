@@ -18,19 +18,19 @@ user_want_stop = False
 max_workers = 6
 
 
-def read_file():
+def read_file(path: str):
     """Returns the contents of a file"""
-    with open('settings_and_battle_tags.json', 'r') as file:
+    with open(path, 'r') as file:
         return json.load(file)
 
 
-def write_file(paste):
+def write_file(path: str, paste):
     """Record file with new content"""
-    with open('settings_and_battle_tags.json', 'w') as file:
+    with open(path, 'w') as file:
         json.dump(paste, file, indent=2)
 
 
-def overwriting_file(max_workers_bool: bool = False, battle_tags_bool: bool = False, battle_tags=None, full_rewrite: bool = False):
+def overwriting_file(path: str, max_workers_bool: bool = False, battle_tags_bool: bool = False, battle_tags=None, full_rewrite: bool = False):
     """Overwrite file or certain blocks in file"""
 
     if battle_tags is None:
@@ -44,17 +44,17 @@ def overwriting_file(max_workers_bool: bool = False, battle_tags_bool: bool = Fa
             raise FileNotFoundError
 
         # read file and rewrite certain settings
-        file_content = read_file()
+        file_content = read_file(path=path)
         if max_workers_bool:
             file_content["Settings"]["max_workers"] = int(max_workers)
         if battle_tags_bool:
             file_content["Battle-tags"] = battle_tags
         if max_workers_bool or battle_tags_bool:
-            write_file(file_content)
+            write_file(paste=file_content, path=path)
 
     # file do not exist
     except FileNotFoundError:
-        write_file({"Settings": {"max_workers": int(max_workers)}, "Battle-tags": battle_tags})
+        write_file(path=path, paste={"Settings": {"max_workers": int(max_workers)}, "Battle-tags": battle_tags})
 
 
 def create_scrollbar(frame, widget):
@@ -101,12 +101,12 @@ def create_table_widget(table):
     table.tag_configure('Private', background='#460000')
 
 
-def add_information_text_widget(text_widget):
+def add_information_text_widget(text_widget, path):
     """If the file with Battle-tags exists > add these Battle-tags to the text-widget
        If the file with Battle-tags does not exist > it is ignored"""
 
     try:
-        file_content = read_file()
+        file_content = read_file(path=path)
 
         # add battle tags in text-widget
         battle_tags = file_content.get("Battle-tags", [])
@@ -119,11 +119,11 @@ def add_information_text_widget(text_widget):
         max_workers = file_content['Settings']['max_workers']
 
     # file changed outside or not exist - rewrite the file
-    except (json.decoder.JSONDecodeError, FileNotFoundError):
-        overwriting_file(full_rewrite=True)
+    except (json.decoder.JSONDecodeError, FileNotFoundError, AttributeError):
+        overwriting_file(full_rewrite=True, path=path)
 
 
-def save_button_click(text_widget):
+def save_button_click(text_widget, path):
     """Save battle-tags from text-widget"""
 
     # get data from text-widget
@@ -133,10 +133,10 @@ def save_button_click(text_widget):
     new_battle_tags = [tag.strip() for tag in data.split(",")]
 
     # rewrite file with new datas
-    overwriting_file(battle_tags_bool=True, battle_tags=new_battle_tags)
+    overwriting_file(battle_tags_bool=True, battle_tags=new_battle_tags, path=path)
 
 
-def links_button_click(save_button, table, text_frame, text_widget):
+def battle_tags_button_click(save_button, table, text_frame, text_widget, path):
     """Open text-widget, change "Link" button to "Save" button"""
 
     # flag for stop check
@@ -144,7 +144,7 @@ def links_button_click(save_button, table, text_frame, text_widget):
     user_want_stop = True
 
     # change button
-    save_button.configure(text='Save', command=lambda: save_button_click(text_widget))
+    save_button.configure(text='Save', command=lambda: save_button_click(text_widget, path))
 
     # remove table-widget
     table.pack_forget()
@@ -153,7 +153,7 @@ def links_button_click(save_button, table, text_frame, text_widget):
     text_frame.pack(side="left", fill="both", expand=True)
 
 
-def check_button_click(check_button, save_button, text_frame, table, text_widget):
+def check_button_click(check_button, save_button, text_frame, table, text_widget, path):
     """Performs a series of actions to retrieve information about each user entered in the text widget field"""
 
     global user_want_stop
@@ -162,25 +162,24 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
 
     try:
         # change button
-        save_button.configure(text='Battle-tags', command=lambda: links_button_click(save_button, table, text_frame, text_widget))
+        save_button.configure(text='Battle-tags', command=lambda: battle_tags_button_click(save_button=save_button, table=table, text_widget=text_widget, text_frame=text_frame, path=path))
 
         # change widget on table
         text_frame.pack_forget()
-        create_table_widget(table)
+        create_table_widget(table=table)
 
         # push information on table
-        battle_tags = read_file().get("Battle-tags")
+        battle_tags = read_file(path=path).get("Battle-tags")
         if len(battle_tags) > 0:
             if not user_want_stop:
-                get_content(battle_tags, table)
-        check_button.configure(state='normal')  # unblock button
+                get_content(battle_tags=battle_tags, table=table)
 
     # when file with battle-tags not exist
     except FileNotFoundError:
-        check_button.configure(state='normal')  # unblock button
         if not user_want_stop:
-            ThreadPoolExecutor().submit(lambda: error_window('Error', 'List of battle-tags is empty!\nPlease click "save" button if you have not already'))
+            ThreadPoolExecutor().submit(lambda: error_window(title='Error', text='List of battle-tags is empty!\nPlease click "save" button if you have not already'))
 
+    check_button.configure(state='normal')  # unblock button
     user_want_stop = False
 
 
@@ -192,7 +191,7 @@ def get_content(battle_tags, table):
 
     # error no battle tags
     if not battle_tags:
-        ThreadPoolExecutor().submit(lambda: error_window('Error', 'List of battle tags is empty!'))
+        ThreadPoolExecutor().submit(lambda: error_window(title='Error', text='List of battle tags is empty!'))
 
         # exit if needed
         if user_want_stop:
@@ -206,10 +205,10 @@ def get_content(battle_tags, table):
         limited_profiles.clear()
         error_occurred = False  # not to create more than one identical error window
 
-        def request_processing(tag):
+        def request_processing(one_battle_tag):
             """2-nd process of check_button_click
                Add information in 3 lists"""
-            information = process_get_content(tag)
+            information = process_get_content(battle_tag=one_battle_tag)
 
             # if needed exit
             if user_want_stop:
@@ -226,7 +225,7 @@ def get_content(battle_tags, table):
 
         # multithreaded request retrieval
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(request_processing, i) for i in battle_tags]
+            futures = [executor.submit(request_processing, battle_tag) for battle_tag in battle_tags]
 
             # handle exceptions if any occur during the execution of threads
             for future, battle_tag in zip(futures, battle_tags):
@@ -237,7 +236,7 @@ def get_content(battle_tags, table):
                 except requests.RequestException:
                     if not error_occurred:
                         error_occurred = True
-                        ThreadPoolExecutor().submit(lambda: error_window('Error', 'Too many requests: Reduce the number of requests in the settings'))
+                        ThreadPoolExecutor().submit(lambda: error_window(title='Error', text='Too many requests: Reduce the number of requests in the settings'))
 
         if user_want_stop:
             return
@@ -257,14 +256,14 @@ def get_content(battle_tags, table):
             table.insert('', tk.END, values=unit, tags=['Private'])
 
 
-def process_get_content(unit):
+def process_get_content(battle_tag):
     """3-rd process of check_button_click
        Get content from API and return this data"""
 
     global user_want_stop
 
     # variables
-    nickname = unit.split("-")[0]
+    nickname = battle_tag.split("-")[0]
     tank_rating = '-'
     damage_rating = '-'
     support_rating = '-'
@@ -277,7 +276,7 @@ def process_get_content(unit):
         return
 
     # get content from API
-    response = requests.get(f'https://overfast-api.tekrop.fr/players/{unit}').json()
+    response = requests.get(f'https://overfast-api.tekrop.fr/players/{battle_tag}').json()
 
     try:
         status = str(response['summary']['privacy']).capitalize()
@@ -327,7 +326,7 @@ def process_get_content(unit):
                 except Exception as e:
                     if user_want_stop:
                         return
-                    ThreadPoolExecutor().submit(lambda: error_window(f'{unit}', f'Something went wrong: {e}'))
+                    ThreadPoolExecutor().submit(lambda: error_window(title=f'{battle_tag}', text=f'Something went wrong: {e}'))
 
             else:  # no competitive
                 status = 'Limited'
@@ -340,11 +339,11 @@ def process_get_content(unit):
     # it happens when could not get blizzard page
     except KeyError:
         if user_want_stop is not True:
-            ThreadPoolExecutor().submit(lambda: error_window('Error', f'{unit}: Timeout exceeded.'))
+            ThreadPoolExecutor().submit(lambda: error_window(title='Error', text=f'{battle_tag}: Timeout exceeded.'))
         return
 
 
-def open_settings_window(window):
+def open_settings_window(window, path):
     """Setting window"""
     global max_workers
 
@@ -391,7 +390,7 @@ def open_settings_window(window):
         """Save max_workers value and destroy window"""
         global max_workers
         max_workers = int(num_requests_var.get())
-        overwriting_file(max_workers_bool=True)
+        overwriting_file(max_workers_bool=True, path=path)
         settings_window.destroy()
 
 
@@ -400,11 +399,11 @@ def error_window(title: str, text: str):
     return messagebox.showerror(title, text)
 
 
-def exit_main_window(text_widget):
+def exit_main_window(text_widget, path):
     """If you forgot to save the file, you are prompted to do so"""
 
     # get battle tags from file
-    battle_tags_file = read_file().get("Battle-tags", [])
+    battle_tags_file = read_file(path=path).get("Battle-tags", [])
 
     # get battle-tags from text-widget
     data = text_widget.get('1.0', tk.END).strip()
@@ -412,8 +411,8 @@ def exit_main_window(text_widget):
 
     # question: save text or not if text-widget content and file content different
     if set(battle_tags_file) != set(battle_tags_widget):
-        if messagebox.askquestion('Exit', 'Are you want to save your battle-tags list?') == 'yes':
-            save_button_click(text_widget)
+        if messagebox.askquestion(title='Exit', message='Are you want to save your battle-tags list?') == 'yes':
+            save_button_click(text_widget=text_widget, path=path)
 
     # close
     os.kill(os.getpid(), signal.SIGTERM)
