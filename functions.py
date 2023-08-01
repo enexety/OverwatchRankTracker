@@ -13,6 +13,7 @@ public_profiles = []
 limited_profiles = []
 private_profiles = []
 user_want_stop = False
+widget_info = None
 
 # initial settings
 max_workers = 6
@@ -151,10 +152,16 @@ def battle_tags_button_click(save_button, table, text_frame, text_widget, path):
 
     # open text-widget
     text_frame.pack(side="left", fill="both", expand=True)
+    text_widget.pack(widget_info)
 
 
 def check_button_click(check_button, save_button, text_frame, table, text_widget, path):
     """Performs a series of actions to retrieve information about each user entered in the text widget field"""
+
+    # save information in text_widget then hide this
+    global widget_info
+    widget_info = text_widget.pack_info()
+    text_widget.pack_forget()
 
     global user_want_stop
     user_want_stop = False  # to avoid problems in further clicks
@@ -164,15 +171,11 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
         # change button
         save_button.configure(text='Battle-tags', command=lambda: battle_tags_button_click(save_button=save_button, table=table, text_widget=text_widget, text_frame=text_frame, path=path))
 
-        # change widget on table
-        text_frame.pack_forget()
-        create_table_widget(table=table)
-
         # push information on table
         battle_tags = read_file(path=path).get("Battle-tags")
         if len(battle_tags) > 0:
             if not user_want_stop:
-                get_content(battle_tags=battle_tags, table=table)
+                get_content(battle_tags=battle_tags, table=table, text_frame=text_frame)
 
     # when file with battle-tags not exist
     except FileNotFoundError:
@@ -183,7 +186,7 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
     user_want_stop = False
 
 
-def get_content(battle_tags, table):
+def get_content(battle_tags, table, text_frame):
     """1-st process of check_button_click
        Get content > record on right order > push to table"""
 
@@ -240,6 +243,10 @@ def get_content(battle_tags, table):
 
         if user_want_stop:
             return
+
+        # change widget on table
+        text_frame.pack_forget()
+        create_table_widget(table=table)
 
         # push content in the right order
         for unit in public_profiles:
