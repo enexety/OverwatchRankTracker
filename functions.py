@@ -12,6 +12,7 @@ import sys
 public_profiles = []
 limited_profiles = []
 private_profiles = []
+check_first_call_again = False
 user_want_stop = False
 widget_info = None
 
@@ -140,9 +141,13 @@ def save_button_click(text_widget, path):
 def battle_tags_button_click(save_button, table, text_frame, text_widget, path):
     """Open text-widget, change "Link" button to "Save" button"""
 
+    global user_want_stop, check_first_call_again
+
     # flag for stop check
-    global user_want_stop
     user_want_stop = True
+
+    # flag for get new information from text widget
+    check_first_call_again = False
 
     # change button
     save_button.configure(text='Save', command=lambda: save_button_click(text_widget, path))
@@ -158,11 +163,6 @@ def battle_tags_button_click(save_button, table, text_frame, text_widget, path):
 def check_button_click(check_button, save_button, text_frame, table, text_widget, path):
     """Performs a series of actions to retrieve information about each user entered in the text widget field"""
 
-    # save information in text_widget then hide this
-    global widget_info
-    widget_info = text_widget.pack_info()
-    text_widget.pack_forget()
-
     global user_want_stop
     user_want_stop = False  # to avoid problems in further clicks
     check_button.configure(state='disabled')  # block button
@@ -172,15 +172,39 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
         save_button.configure(text='Battle-tags', command=lambda: battle_tags_button_click(save_button=save_button, table=table, text_widget=text_widget, text_frame=text_frame, path=path))
 
         # push information on table
-        battle_tags = read_file(path=path).get("Battle-tags")
-        if len(battle_tags) > 0:
+        battle_tags = text_widget.get('1.0', tk.END).strip()
+        if battle_tags:
+            battle_tags = [tag.strip() for tag in battle_tags.split(",")]
             if not user_want_stop:
+
+                global widget_info, check_first_call_again
+
+                # flag to avoid errors. When the text_widget is forgotten, you cannot get info from it. This flag is only needed to handle consecutive clicks of the Check button.
+                if not check_first_call_again:
+
+                    # get info from text_widget
+                    widget_info = text_widget.pack_info()
+                    text_widget.pack_forget()
+
+                    # change flag
+                    check_first_call_again = True
+
+                # add temporarily loading text
+                else:
+
+                    # remove table-widget
+                    table.pack_forget()
+
+                    # loading text
+                    text_frame.pack(side="left", fill="both", expand=True)
+
                 get_content(battle_tags=battle_tags, table=table, text_frame=text_frame)
+        else:
+            raise ValueError
 
     # when file with battle-tags not exist
-    except FileNotFoundError:
-        if not user_want_stop:
-            ThreadPoolExecutor().submit(lambda: error_window(title='Error', text='List of battle-tags is empty!\nPlease click "save" button if you have not already'))
+    except ValueError:
+        ThreadPoolExecutor().submit(lambda: error_window(title='Error', text='List of battle tags is empty.'))
 
     check_button.configure(state='normal')  # unblock button
     user_want_stop = False
@@ -192,75 +216,67 @@ def get_content(battle_tags, table, text_frame):
 
     global user_want_stop
 
-    # error no battle tags
-    if not battle_tags:
-        ThreadPoolExecutor().submit(lambda: error_window(title='Error', text='List of battle tags is empty!'))
+    # clear content from lists
+    private_profiles.clear()
+    public_profiles.clear()
+    limited_profiles.clear()
 
-        # exit if needed
+    # not to create more than one identical error window
+    error_occurred = False
+
+    def request_processing(one_battle_tag):
+        """2-nd process of check_button_click
+           Add information in 3 lists"""
+        information = process_get_content(battle_tag=one_battle_tag)
+
+        # if needed exit
         if user_want_stop:
             return
 
-    else:
+        # record 3 different types to the relevant lists
+        if information:
+            if information[0] == 'Public':
+                public_profiles.append(information)
+            elif information[0] == 'Limited':
+                limited_profiles.append(information)
+            else:
+                private_profiles.append(information)
 
-        # clear content from lists
-        private_profiles.clear()
-        public_profiles.clear()
-        limited_profiles.clear()
-        error_occurred = False  # not to create more than one identical error window
+    # multithreaded request retrieval
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(request_processing, battle_tag) for battle_tag in battle_tags]
 
-        def request_processing(one_battle_tag):
-            """2-nd process of check_button_click
-               Add information in 3 lists"""
-            information = process_get_content(battle_tag=one_battle_tag)
+        # handle exceptions if any occur during the execution of threads
+        for future, battle_tag in zip(futures, battle_tags):
+            try:
+                future.result()
 
-            # if needed exit
-            if user_want_stop:
-                return
+            # one error-window no more
+            except requests.RequestException:
+                if not error_occurred:
+                    error_occurred = True
+                    ThreadPoolExecutor().submit(lambda: error_window(title='Error', text='Too many requests: Reduce the number of requests in the settings'))
 
-            # record 3 different types to the relevant lists
-            if information:
-                if information[0] == 'Public':
-                    public_profiles.append(information)
-                elif information[0] == 'Limited':
-                    limited_profiles.append(information)
-                else:
-                    private_profiles.append(information)
+    if user_want_stop:
+        return
 
-        # multithreaded request retrieval
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [executor.submit(request_processing, battle_tag) for battle_tag in battle_tags]
+    # change widget on table
+    text_frame.pack_forget()
+    create_table_widget(table=table)
 
-            # handle exceptions if any occur during the execution of threads
-            for future, battle_tag in zip(futures, battle_tags):
-                try:
-                    future.result()
-
-                # one error-window no more
-                except requests.RequestException:
-                    if not error_occurred:
-                        error_occurred = True
-                        ThreadPoolExecutor().submit(lambda: error_window(title='Error', text='Too many requests: Reduce the number of requests in the settings'))
-
+    # push content in the right order
+    for unit in public_profiles:
         if user_want_stop:
             return
-
-        # change widget on table
-        text_frame.pack_forget()
-        create_table_widget(table=table)
-
-        # push content in the right order
-        for unit in public_profiles:
-            if user_want_stop:
-                return
-            table.insert('', tk.END, values=unit, tags=['Public'])
-        for unit in limited_profiles:
-            if user_want_stop:
-                return
-            table.insert('', tk.END, values=unit, tags=['Limited'])
-        for unit in private_profiles:
-            if user_want_stop:
-                return
-            table.insert('', tk.END, values=unit, tags=['Private'])
+        table.insert('', tk.END, values=unit, tags=['Public'])
+    for unit in limited_profiles:
+        if user_want_stop:
+            return
+        table.insert('', tk.END, values=unit, tags=['Limited'])
+    for unit in private_profiles:
+        if user_want_stop:
+            return
+        table.insert('', tk.END, values=unit, tags=['Private'])
 
 
 def process_get_content(battle_tag):
@@ -346,7 +362,7 @@ def process_get_content(battle_tag):
     # it happens when could not get blizzard page
     except KeyError:
         if user_want_stop is not True:
-            ThreadPoolExecutor().submit(lambda: error_window(title='Error', text=f'{battle_tag}: Timeout exceeded.'))
+            ThreadPoolExecutor().submit(lambda: error_window(title='Error', text=f'This account "{battle_tag}" was not found.'))
         return
 
 

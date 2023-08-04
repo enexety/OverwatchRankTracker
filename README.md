@@ -1,44 +1,40 @@
 # Overwatch Rank Tracker
 
-This project is a simple application built with Python and tkinter that allows you to track the rankings of Overwatch players.
+Overwatch Rank Tracker is a desktop application developed using Python Tkinter. It allows you to track the rank(s) in Competitive Role Queue for one or multiple accounts for PC players.
 
-It is using open API `https://overfast-api.tekrop.fr/`
+Additionally, the application displays essential player statistics, including season data, playtime, win rate, and KD.
+
+The displayed information will only be shown if the account is not set to private and the player has participated in Competitive Role Queue at least once. Otherwise, the status will be indicated as Private/Limited.
+
+In the Season column, the player's latest competitive season will be shown, while all other statistics will be relevant to that specific season.
+
+This application uses an open **[API](https://overfast-api.tekrop.fr/)**
+
 
 ## Installation
 
-To run the application, follow these steps:
+* **[Windows](https://github.com/enexety/Overwath_Rank_Tracker_API/releases)**
 
-1. Clone the repository or download the source code files.
-2. Open the command prompt or terminal.
-3. Navigate to the project directory using the `cd` command. For example: `cd /path/to/project`.
-4. Install the required dependencies by running the following command: `pip install -r requirements.txt`.
+
+## Screenshots
+
+<p align="center">
+  <img src="https://github.com/enexety/Overwath_Rank_Tracker/assets/110674990/6d1a245d-7f18-44da-a32e-5f28304004e4" width="410">
+  <img src="https://github.com/enexety/Overwath_Rank_Tracker/assets/110674990/6f83b3ad-b2d3-4e28-a5f9-797462b7e950" width="410">
+</p>
+
 
 ## Usage
 
-To use the Overwatch Rank Tracker, follow these steps:
+1. Run the `Overwatch_Rank_Tracker.exe`.
+2. The application window will open, where you can enter one or more battle-tags `example-1234, anotherone-5678` separated by commas.
+3. You can press the 'Check' button to view the rating of tracked players.
 
-1. Run the `Overwatch_Rank_Tracker.py` file using Python.
-2. The application window will open, where you can enter one or more battle-tags `example-1234` separated by commas and click the "Save" button.
-3. After saving the links, the application will display the current rankings and other relevant information for each player.
 
 ## Settings
 
 1. **Number of Requests:** You can now specify the number of simultaneous requests made to the Overwatch API. This determines how many battle-tags will be checked at the same time. Adjusting this value can affect the speed and resource usage of the application.
 
-
-   Please note that setting the number of requests too high may lead to possible errors. It's recommended to keep this value at a reasonable level to avoid potential issues.
-
-## Building with PyInstaller
-
-To build a standalone executable file using PyInstaller, follow these steps:
-
-1. Open the command prompt or terminal.
-2. Navigate to the project directory using the `cd` command. For example: `cd /path/to/project`.
-3. Run the following command:
-```pyinstaller --onefile --noconsole --name "Overwatch Rank Tracker" --icon "path_to_icon\OverwatchRankTrackerDesktop_API\resources\icon.ico" --distpath "Overwath_Rank_Tracker" Overwatch_Rank_Tracker.py```
-
-   Replace `path_to_icon` with the actual path to the icon file on your system.
-4. PyInstaller will generate a standalone executable file in the "dist" directory.
-5. Optionally, you can place the `settings_and_battle_tags.json` file in the same directory as the executable file to have example players battle-tags.
+Please note that setting the number of requests too high may lead to possible errors. It's recommended to keep this value at a reasonable level to avoid potential issues.
 
 Enjoy!
