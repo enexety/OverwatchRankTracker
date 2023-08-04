@@ -13,21 +13,23 @@ This application uses an open **[API](https://overfast-api.tekrop.fr/)**
 
 ## Installation
 
+
 * **[Windows](https://github.com/enexety/Overwath_Rank_Tracker_API/releases)**
 
 
 ## Screenshots
 
+
 <p align="center">
-  <img src="https://github.com/enexety/Overwath_Rank_Tracker/assets/110674990/6d1a245d-7f18-44da-a32e-5f28304004e4" width="410">
-  <img src="https://github.com/enexety/Overwath_Rank_Tracker/assets/110674990/6f83b3ad-b2d3-4e28-a5f9-797462b7e950" width="410">
+  <img src="https://github.com/enexety/Overwath_Rank_Tracker/assets/110674990/2c138968-15b2-433c-b2b1-e70a997431bb" width="410">
+  <img src="https://github.com/enexety/Overwath_Rank_Tracker/assets/110674990/32d1c9c6-8be9-43ac-9bff-5ab6772b44d5" width="410">
 </p>
 
 
 ## Usage
 
 1. Run the `Overwatch_Rank_Tracker.exe`.
-2. The application window will open, where you can enter one or more battle-tags `example-1234, anotherone-5678` separated by commas.
+2. The application window will be open, where you can enter one or more battle-tags separated by commas: `example-1234, anotherone-5678`
 3. You can press the 'Check' button to view the rating of tracked players.
 
 
