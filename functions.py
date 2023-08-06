@@ -8,6 +8,10 @@ from concurrent.futures import ThreadPoolExecutor
 import json
 import sys
 
+# personal information for GitHub Gist, used for sending logs
+username = None
+token = None
+
 # create global variables
 public_profiles = []
 limited_profiles = []
@@ -18,6 +22,33 @@ widget_info = None
 
 # initial settings
 max_workers = 6
+
+
+def sending_logs(api_response):
+    """Sending logs, this is used only for a specific unexpected error."""
+
+    # If it has a token and username
+    try:
+
+        # convert to string
+        api_response = json.dumps(api_response, indent=4)
+
+        # send log
+        requests.post(
+            "https://api.github.com/gists",
+            auth=(username, token),
+            json={
+                "description": "Error log Overwatch Rank Tracker",
+                "public": False,
+                "files": {
+                    "api_response.json": {"content": api_response}
+                }
+            }
+        )
+
+    # does not have token or username
+    except requests.exceptions.HTTPError:
+        pass
 
 
 def read_file(path: str):
@@ -311,11 +342,11 @@ def process_get_content(battle_tag):
                     # stats
                     season = response['summary']['competitive']['pc']['season']
                     stats = response['stats']['pc']['competitive']['career_stats']['all-heroes']
-                    eliminations = next(stat['value'] for hero in stats for stat in hero['stats'] if stat['key'] == 'eliminations')
-                    deaths = next(stat['value'] for hero in stats for stat in hero['stats'] if stat['key'] == 'deaths')
-                    sec_played = next(stat['value'] for hero in stats if hero['category'] == 'game' for stat in hero['stats'] if stat['key'] == 'time_played')
-                    games_played = next(stat['value'] for hero in stats if hero['category'] == 'game' for stat in hero['stats'] if stat['key'] == 'games_played')
-                    games_won = next(stat['value'] for hero in stats if hero['category'] == 'game' for stat in hero['stats'] if stat['key'] == 'games_won')
+                    eliminations = next((stat['value'] for hero in stats for stat in hero['stats'] if stat['key'] == 'eliminations'), 0)
+                    deaths = next((stat['value'] for hero in stats for stat in hero['stats'] if stat['key'] == 'deaths'), 0)
+                    sec_played = next((stat['value'] for hero in stats if hero['category'] == 'game' for stat in hero['stats'] if stat['key'] == 'time_played'), 0)
+                    games_played = next((stat['value'] for hero in stats if hero['category'] == 'game' for stat in hero['stats'] if stat['key'] == 'games_played'), 0)
+                    games_won = next((stat['value'] for hero in stats if hero['category'] == 'game' for stat in hero['stats'] if stat['key'] == 'games_won'), 0)
 
                     # stats calculation
                     time_played = f'{sec_played // 3600}hr {(sec_played % 3600) // 60}min'
@@ -345,11 +376,12 @@ def process_get_content(battle_tag):
 
                     return status, nickname, season, tank_rating, damage_rating, support_rating, time_played, win_rate, kd
 
-                # possibly could happen if no 'pc' stats
+                # unexpected error
                 except Exception as e:
                     if user_want_stop:
                         return
-                    ThreadPoolExecutor().submit(lambda: error_window(title=f'{battle_tag}', text=f'Something went wrong: {e}'))
+                    ThreadPoolExecutor().submit(lambda: error_window(title=f'{battle_tag}', text=f'Sorry, something went wrong. {e}'))
+                    sending_logs(api_response=response)
 
             else:  # no competitive
                 status = 'Limited'

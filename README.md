@@ -29,13 +29,13 @@ This application uses an open **[API](https://overfast-api.tekrop.fr/)**
 ## Usage
 
 1. Run the `Overwatch_Rank_Tracker.exe`.
-2. The application window will be open, where you can enter one or more battle-tags separated by commas: `example-1234, anotherone-5678`
+2. The application window will be open, where you can enter one or more battle-tags separated by commas: `example-1234, anotherone-5678`.
 3. You can press the 'Check' button to view the rating of tracked players.
 
 
 ## Settings
 
-1. **Number of Requests:** You can now specify the number of simultaneous requests made to the Overwatch API. This determines how many battle-tags will be checked at the same time. Adjusting this value can affect the speed and resource usage of the application.
+1. **Number of Requests:** You can specify the number of simultaneous requests made to the Overwatch API. This determines how many battle-tags will be checked at the same time. Adjusting this value can affect the speed and resource usage of the application.
 
 Please note that setting the number of requests too high may lead to possible errors. It's recommended to keep this value at a reasonable level to avoid potential issues.
 
