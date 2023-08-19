@@ -19,6 +19,7 @@ private_profiles = []
 check_first_call_again = False
 user_want_stop = False
 widget_info = None
+error_battle_tags = []
 
 # initial settings
 max_workers = 6
@@ -53,12 +54,14 @@ def sending_logs(api_response):
 
 def read_file(path: str):
     """Returns the contents of a file"""
+
     with open(path, 'r') as file:
         return json.load(file)
 
 
 def write_file(path: str, paste):
     """Record file with new content"""
+
     with open(path, 'w') as file:
         json.dump(paste, file, indent=2)
 
@@ -92,6 +95,7 @@ def overwriting_file(path: str, max_workers_bool: bool = False, battle_tags_bool
 
 def create_scrollbar(frame, widget):
     """It creates scrollbar"""
+
     scrollbar = ttk.Scrollbar(frame, command=widget.yview)
     scrollbar.pack(side='right', fill='y', pady=10)
     widget.config(yscrollcommand=scrollbar.set)
@@ -286,7 +290,11 @@ def get_content(battle_tags, table, text_frame):
             except requests.RequestException:
                 if not error_occurred:
                     error_occurred = True
-                    ThreadPoolExecutor().submit(lambda: error_window(title='Error', text='Too many requests: Reduce the number of requests in the settings'))
+                    ThreadPoolExecutor().submit(
+                        lambda: error_window(title='Error', text='Too many requests: Reduce the number of requests in the settings.\n\n'
+                                                                 'If it does not help, there may be a problem:\n'
+                                                                 '1. In the server\n'
+                                                                 '2. Check if you added the battle tags correctly\n'))
 
     if user_want_stop:
         return
@@ -294,6 +302,10 @@ def get_content(battle_tags, table, text_frame):
     # change widget on table
     text_frame.pack_forget()
     create_table_widget(table=table)
+
+    # error window if battle-tag(s) was not found
+    if len(error_battle_tags) > 0:
+        ThreadPoolExecutor().submit(lambda: error_window(title='Error', text=f'This accounts ({", ".join(map(str, error_battle_tags))}) was not found.'))
 
     # push content in the right order
     for unit in public_profiles:
@@ -325,6 +337,9 @@ def process_get_content(battle_tag):
     win_rate = '-'
     kd = '-'
     season = '-'
+
+    # avoiding repeated duplication of windows with an error, list for battle-tags with problem
+    global error_battle_tags
 
     if user_want_stop:
         return
@@ -377,10 +392,10 @@ def process_get_content(battle_tag):
                     return status, nickname, season, tank_rating, damage_rating, support_rating, time_played, win_rate, kd
 
                 # unexpected error
-                except Exception as e:
+                except Exception as e:  # noqa: F841
                     if user_want_stop:
                         return
-                    ThreadPoolExecutor().submit(lambda: error_window(title=f'{battle_tag}', text=f'Sorry, something went wrong. {e}'))
+                    ThreadPoolExecutor().submit(lambda: error_window(title=f'{battle_tag}', text=f'Sorry, something went wrong. {e}'))  # noqa: F821
                     sending_logs(api_response=response)
 
             else:  # no competitive
@@ -394,7 +409,7 @@ def process_get_content(battle_tag):
     # it happens when could not get blizzard page
     except KeyError:
         if user_want_stop is not True:
-            ThreadPoolExecutor().submit(lambda: error_window(title='Error', text=f'This account "{battle_tag}" was not found.'))
+            error_battle_tags.append(battle_tag)
         return
 
 

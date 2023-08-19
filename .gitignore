@@ -1,0 +1,9 @@
+.git
+.idea
+__pycache__
+*.spec
+build
+.pytest_cache
+Overwath_Rank_Tracker
+dist
+*.zip
