@@ -1,0 +1,30 @@
+name: Run Flake8
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  lint:
+    name: Run Flake8
+    runs-on: windows-latest
+
+    steps:
+    - name: Clone repository
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.9
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install flake8
+
+    - name: Run Flake8
+      run: |
+        flake8 --config config.flake8 || exit 1
