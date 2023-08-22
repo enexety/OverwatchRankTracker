@@ -8,10 +8,6 @@ from concurrent.futures import ThreadPoolExecutor
 import json
 import sys
 
-# personal information for GitHub Gist, used for sending logs
-username = None
-token = None
-
 # create global variables
 public_profiles = []
 limited_profiles = []
@@ -23,6 +19,10 @@ error_battle_tags = []
 
 # initial settings
 max_workers = 6
+
+# personal information for GitHub Gist, used for sending logs
+username = ""
+token = ""
 
 
 def sending_logs(api_response):
