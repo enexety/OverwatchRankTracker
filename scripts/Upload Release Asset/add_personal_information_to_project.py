@@ -1,36 +1,56 @@
+import json
+import os
+import re
 import sys
 
 
-def main(username: str, token: str):
+def main(token: str):
 
-    # paths
-    upload_path = r"D:\pythonProjects\Overwatch_Rank_Tracker\scripts\Upload Release Asset\upload_release_asset.py"
-    functions_path = r"D:\pythonProjects\Overwatch_Rank_Tracker\functions.py"
-
-    # read and replace personal data in upload_release_asset.py
-    with open(upload_path, 'r') as file:
-        content = file.read()
-    content = content.replace('token = ""', f'token = "{token}"')
-
-    # rewrite personal data in upload_release_asset.py
-    with open(upload_path, 'w') as file:
-        file.write(content)
+    # get code path
+    target_folder = "Overwatch_Rank_Tracker"
+    current_path = os.getcwd()
+    path_parts = current_path.split(os.path.sep)
+    index = path_parts.index(target_folder)
+    project_path = os.path.sep.join(path_parts[:index + 1])
+    code_path = os.path.join(project_path, "Overwatch_Rank_Tracker.py")
 
     # read and replace personal data in functions.py
-    with open(functions_path, 'r') as file:
-        content = file.read()
-    content = content.replace('username = ""', f'username = "{username}"')
-    content = content.replace('token = ""', f'token = "{token}"')
+    with open(code_path, 'r') as fi1e:
+        content = fi1e.read()
+
+    content = re.sub(r'token = "[^"]*"', f'token = "{token}"', content)
 
     # rewrite personal data in functions.py
-    with open(functions_path, 'w') as file:
-        file.write(content)
+    with open(code_path, 'w') as f:
+        f.write(content)
 
-    print("Token and name have been added.")
+    print("\nToken have been added.")
 
 
 if __name__ == "__main__":
-    GH_username = sys.argv[1] if len(sys.argv) > 1 else ''
-    GH_token = sys.argv[2] if len(sys.argv) > 2 else ''
 
-    main(username=str(GH_username), token=str(GH_token))
+    # argument passed
+    if len(sys.argv) > 1:
+        GH_token = sys.argv[1]
+
+    # argument is not passed, check if there is a file with token
+    elif os.path.exists(r"D:\pythonProjects\config.json"):
+
+        # read file
+        with open(r"D:\pythonProjects\config.json", 'r') as file:
+            file_content = json.load(file)
+
+        # get token from file
+        try:
+            GH_token = file_content['token']
+
+        # error handle
+        except Exception as e:
+            GH_token = None
+            print(f"Error. No token found inside file. {e}")
+
+    else:
+        GH_token = None
+
+    if GH_token:
+        main(token=GH_token)

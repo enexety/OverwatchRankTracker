@@ -1,12 +1,14 @@
 import concurrent
 import os
 import signal
-from tkinter import ttk, messagebox
+import subprocess
+from tkinter import ttk, messagebox, Text, Frame, Tk, Button
 import tkinter as tk
 import requests
 from concurrent.futures import ThreadPoolExecutor
 import json
 import sys
+
 
 # create global variables
 public_profiles = []
@@ -20,12 +22,54 @@ error_battle_tags = []
 # initial settings
 max_workers = 6
 
-# personal information for GitHub Gist, used for sending logs
-username = ""
-token = ""
+# # open text-widget
+#         text_frame.pack(side="left", fill="both", expand=True)
+#         text_widget.pack(widget_info)
+# text_frame: Frame, text_widget: Text
 
 
-def sending_logs(api_response):
+def check_for_updates(owner_name: str, repo_name: str, current_version: str):
+    """Checks the current version against the current version and starts an external update process if necessary."""
+
+    try:
+
+        # request for the latest release version
+        response = requests.get(f"https://api.github.com/repos/{owner_name}/{repo_name}/releases/latest")
+
+        # error handling
+        if response.status_code != 200:
+            ThreadPoolExecutor().submit(lambda: messagebox.showerror(title='Error', text=f'While getting latest version, error code {response.status_code}.'))
+            return
+
+        # get information
+        latest_release = response.json()
+
+        # get the name of the latest version
+        latest_version = latest_release['name']
+
+        # versions are different - request for update
+        if latest_version != current_version:
+
+            # ask the user if he wants to upgrade
+            question = messagebox.askyesno("Update is available", "Do you want to update?")
+
+            # user wants updates
+            if question:
+
+                # run auto-update
+                subprocess.run(['python', 'Updater.exe'])
+
+                # finishing the main process
+                sys.exit()
+
+    except requests.exceptions.ConnectionError:
+        messagebox.showerror("Update Error", "Internet connection problem.")
+
+    except Exception as e:
+        messagebox.showerror("Update Error", f"Error checking for updates.\n{e}")
+
+
+def sending_logs(api_response: dict, owner_name: str, token: str):
     """Sending logs, this is used only for a specific unexpected error."""
 
     # If it has a token and username
@@ -37,7 +81,7 @@ def sending_logs(api_response):
         # send log
         requests.post(
             "https://api.github.com/gists",
-            auth=(username, token),
+            auth=(owner_name, token),
             json={
                 "description": "Error log Overwatch Rank Tracker",
                 "public": False,
@@ -47,7 +91,7 @@ def sending_logs(api_response):
             }
         )
 
-    # does not have token or username
+    # error handle
     except requests.exceptions.HTTPError:
         pass
 
@@ -59,14 +103,14 @@ def read_file(path: str):
         return json.load(file)
 
 
-def write_file(path: str, paste):
+def write_file(path: str, paste: dict):
     """Record file with new content"""
 
     with open(path, 'w') as file:
         json.dump(paste, file, indent=2)
 
 
-def overwriting_file(path: str, max_workers_bool: bool = False, battle_tags_bool: bool = False, battle_tags=None, full_rewrite: bool = False):
+def overwriting_file(path: str, max_workers_bool: bool = False, battle_tags_bool: bool = False, battle_tags: list = None, full_rewrite: bool = False):
     """Overwrite file or certain blocks in file"""
 
     if battle_tags is None:
@@ -93,7 +137,7 @@ def overwriting_file(path: str, max_workers_bool: bool = False, battle_tags_bool
         write_file(path=path, paste={"Settings": {"max_workers": int(max_workers)}, "Battle-tags": battle_tags})
 
 
-def create_scrollbar(frame, widget):
+def create_scrollbar(frame: Frame, widget: Text):
     """It creates scrollbar"""
 
     scrollbar = ttk.Scrollbar(frame, command=widget.yview)
@@ -101,7 +145,7 @@ def create_scrollbar(frame, widget):
     widget.config(yscrollcommand=scrollbar.set)
 
 
-def create_table_widget(table):
+def create_table_widget(table: ttk.Treeview):
     """Create table-widget, columns = 9
        for 800x600, full length = 796
        if you set the minimum length for all columns, full length = 598"""
@@ -138,7 +182,7 @@ def create_table_widget(table):
     table.tag_configure('Private', background='#460000')
 
 
-def add_information_text_widget(text_widget, path):
+def add_information_text_widget(text_widget: Text, path: str):
     """If the file with Battle-tags exists > add these Battle-tags to the text-widget
        If the file with Battle-tags does not exist > it is ignored"""
 
@@ -160,7 +204,7 @@ def add_information_text_widget(text_widget, path):
         overwriting_file(full_rewrite=True, path=path)
 
 
-def save_button_click(text_widget, path):
+def save_button_click(text_widget: Text, path: str):
     """Save battle-tags from text-widget"""
 
     # get data from text-widget
@@ -173,7 +217,7 @@ def save_button_click(text_widget, path):
     overwriting_file(battle_tags_bool=True, battle_tags=new_battle_tags, path=path)
 
 
-def battle_tags_button_click(save_button, table, text_frame, text_widget, path):
+def battle_tags_button_click(save_button: Button, table: ttk.Treeview, text_frame: Frame, text_widget: Text, path: str):
     """Open text-widget, change "Link" button to "Save" button"""
 
     global user_want_stop, check_first_call_again
@@ -195,7 +239,7 @@ def battle_tags_button_click(save_button, table, text_frame, text_widget, path):
     text_widget.pack(widget_info)
 
 
-def check_button_click(check_button, save_button, text_frame, table, text_widget, path):
+def check_button_click(check_button: Button, save_button: Button, text_frame: Frame, table: ttk.Treeview, text_widget: Text, path: str, owner_name: str, token: str):
     """Performs a series of actions to retrieve information about each user entered in the text widget field"""
 
     global user_want_stop
@@ -203,6 +247,7 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
     check_button.configure(state='disabled')  # block button
 
     try:
+
         # change button
         save_button.configure(text='Battle-tags', command=lambda: battle_tags_button_click(save_button=save_button, table=table, text_widget=text_widget, text_frame=text_frame, path=path))
 
@@ -233,19 +278,35 @@ def check_button_click(check_button, save_button, text_frame, table, text_widget
                     # loading text
                     text_frame.pack(side="left", fill="both", expand=True)
 
-                get_content(battle_tags=battle_tags, table=table, text_frame=text_frame)
+                try:
+                    get_content(battle_tags=battle_tags, table=table, text_frame=text_frame, owner_name=owner_name, token=token)
+
+                except requests.exceptions.ConnectionError:
+
+                    # remove table-widget
+                    table.pack_forget()
+
+                    # open text-widget
+                    text_frame.pack(side="left", fill="both", expand=True)
+                    text_widget.pack(widget_info)
+
+                    # change button back
+                    save_button.configure(text='Save', command=lambda: save_button_click(text_widget, path))
+
+                    messagebox.showerror("Connection Error", "Internet connection problem.")
+
         else:
             raise ValueError
 
     # when file with battle-tags not exist
     except ValueError:
-        ThreadPoolExecutor().submit(lambda: error_window(title='Error', text='List of battle tags is empty.'))
+        ThreadPoolExecutor().submit(lambda: messagebox.showerror(title='Error', text='List of battle tags is empty.'))
 
     check_button.configure(state='normal')  # unblock button
     user_want_stop = False
 
 
-def get_content(battle_tags, table, text_frame):
+def get_content(battle_tags: list, table: ttk.Treeview, text_frame: Frame, owner_name: str, token: str):
     """1-st process of check_button_click
        Get content > record on right order > push to table"""
 
@@ -262,7 +323,8 @@ def get_content(battle_tags, table, text_frame):
     def request_processing(one_battle_tag):
         """2-nd process of check_button_click
            Add information in 3 lists"""
-        information = process_get_content(battle_tag=one_battle_tag)
+
+        information = process_get_content(battle_tag=one_battle_tag, owner_name=owner_name, token=token)
 
         # if needed exit
         if user_want_stop:
@@ -281,20 +343,29 @@ def get_content(battle_tags, table, text_frame):
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(request_processing, battle_tag) for battle_tag in battle_tags]
 
+        if user_want_stop:
+            return
+
         # handle exceptions if any occur during the execution of threads
         for future, battle_tag in zip(futures, battle_tags):
             try:
                 future.result()
 
-            # one error-window no more
+            # no internet connect
+            except requests.exceptions.ConnectionError:
+                raise requests.exceptions.ConnectionError
+
+            # error handling
             except requests.RequestException:
+
+                # one error-window no more
                 if not error_occurred:
                     error_occurred = True
                     ThreadPoolExecutor().submit(
-                        lambda: error_window(title='Error', text='Too many requests: Reduce the number of requests in the settings.\n\n'
-                                                                 'If it does not help, there may be a problem:\n'
-                                                                 '1. In the server\n'
-                                                                 '2. Check if you added the battle tags correctly\n'))
+                        lambda: messagebox.showerror(title='Error', text='Too many requests: Reduce the number of requests in the settings.\n'
+                                                                         'If it does not help, there may be a problem:\n\n'
+                                                                         '1. Problem in the server.\n'
+                                                                         '2. Check if you added the battle tags correctly.\n'))
 
     if user_want_stop:
         return
@@ -305,7 +376,7 @@ def get_content(battle_tags, table, text_frame):
 
     # error window if battle-tag(s) was not found
     if len(error_battle_tags) > 0:
-        ThreadPoolExecutor().submit(lambda: error_window(title='Error', text=f'This accounts ({", ".join(map(str, error_battle_tags))}) was not found.'))
+        ThreadPoolExecutor().submit(lambda: messagebox.showerror(title='Error', text=f'This accounts ({", ".join(map(str, error_battle_tags))}) was not found.'))
 
     # push content in the right order
     for unit in public_profiles:
@@ -322,7 +393,7 @@ def get_content(battle_tags, table, text_frame):
         table.insert('', tk.END, values=unit, tags=['Private'])
 
 
-def process_get_content(battle_tag):
+def process_get_content(battle_tag: str, owner_name: str, token: str):
     """3-rd process of check_button_click
        Get content from API and return this data"""
 
@@ -396,7 +467,7 @@ def process_get_content(battle_tag):
                     if user_want_stop:
                         return
                     ThreadPoolExecutor().submit(lambda: error_window(title=f'{battle_tag}', text=f'Sorry, something went wrong. {e}'))  # noqa: F821
-                    sending_logs(api_response=response)
+                    sending_logs(api_response=response, owner_name=owner_name, token=token)
 
             else:  # no competitive
                 status = 'Limited'
@@ -413,8 +484,9 @@ def process_get_content(battle_tag):
         return
 
 
-def open_settings_window(window, path):
+def open_settings_window(window: Tk, path: str):
     """Setting window"""
+
     global max_workers
 
     # set window-setting
@@ -433,6 +505,7 @@ def open_settings_window(window, path):
     setting_y_cord = int((setting_screen_height / 2) - (settings_window_height / 2))
     settings_window.geometry(f"{settings_window_width}x{settings_window_height}+{setting_x_cord}+{setting_y_cord}")
 
+    # close window
     settings_window.protocol("WM_DELETE_WINDOW", settings_window.destroy)
 
     # empty cell for top indent
@@ -458,18 +531,14 @@ def open_settings_window(window, path):
 
     def settings_save_click():
         """Save max_workers value and destroy window"""
+
         global max_workers
         max_workers = int(num_requests_var.get())
         overwriting_file(max_workers_bool=True, path=path)
         settings_window.destroy()
 
 
-def error_window(title: str, text: str):
-    """Call error window"""
-    return messagebox.showerror(title, text)
-
-
-def exit_main_window(text_widget, path):
+def exit_main_window(text_widget: Text, path: str):
     """If you forgot to save the file, you are prompted to do so"""
 
     # get battle tags from file

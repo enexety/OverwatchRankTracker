@@ -1,42 +1,26 @@
 import os
 import subprocess
-import time
-
-import keyboard
 import requests
-import shutil
+
+from Overwatch_Rank_Tracker import token, owner_name, repo_name
+from build_and_archive import zip_file_path, project_path
 
 
-def create_zip_file(zip_file_path, dist_path, project_folder_name, temporary_folder):
-    """Creates a zip file with an exe file for release"""
-
-    # there is an old archive - delete it
-    if os.path.exists(zip_file_path):
-        os.remove(zip_file_path)
-
-    # duplicate a folder(dist) to get a folder with the desired name and keep the existing original folder.
-    shutil.copytree(dist_path, project_folder_name)
-
-    # creating an archive from a duplicated folder
-    shutil.make_archive(temporary_folder, "zip")
-
-    # deleting a duplicate folder
-    shutil.rmtree(temporary_folder)
-
-    print("Zip file created.")
+# change directory to project path
+os.chdir(project_path)
 
 
-def get_new_tag(owner, repo, headers):
+def get_new_tag(headers):
     """Gets the last tag and increments it"""
 
-    url = f"https://api.github.com/repos/{owner}/{repo}/tags"
-    response_get_last_tag = requests.get(url=url, headers=headers)
+    url = f"https://api.github.com/repos/{owner_name}/{repo_name}/tags"
+    response_get_latest_tag = requests.get(url=url, headers=headers)
 
     # error handling
-    if response_get_last_tag.status_code != 200:
-        raise Exception(f"Error while getting tag, error code {response_get_last_tag.status_code}.")
+    if response_get_latest_tag.status_code != 200:
+        raise Exception(f"Error while getting tag, error code {response_get_latest_tag.status_code}.")
 
-    tags = response_get_last_tag.json()
+    tags = response_get_latest_tag.json()
     latest_tag = tags[0]['name']
     tag = latest_tag[1:]
     parts = tag.split('.')
@@ -75,17 +59,25 @@ def generate_release_description(tag: str):
     return description
 
 
-def create_release(owner, repo, tag, headers):
+def create_release(tag, headers, release_description: str):
     """Creates a release"""
 
-    data = {"owner": owner, "repo": repo, "tag_name": tag}
-    create_release_url = f"https://api.github.com/repos/{owner}/{repo}/releases"
+    # get latest release description
+    response = requests.get(f"https://api.github.com/repos/{owner_name}/{repo_name}/releases/latest")
+    latest_release_description = response.json()["body"]
+
+    # comparing releases without the first line
+    if latest_release_description.strip().split('\n')[1:] == release_description.strip().split('\n')[1:]:
+        raise Exception("Error when creating a release. Such a release already exists. The title of the release is the same as the previous one.")
+
+    data = {"owner": owner_name, "repo": repo_name, "tag_name": tag}
+    create_release_url = f"https://api.github.com/repos/{owner_name}/{repo_name}/releases"
     response = requests.post(url=create_release_url, json=data, headers=headers)
     release_id = response.json()["id"]
 
     # error handling
     if response.status_code != 201:
-        delete_release_and_tag(tag=tag, owner=owner, release_id=release_id, headers=headers, repo=repo)
+        delete_release_and_tag(tag=tag, release_id=release_id, headers=headers)
         raise Exception(f"Error when creating a release, error code {response.status_code}.")
 
     upload_url = response.json()["upload_url"]
@@ -95,35 +87,35 @@ def create_release(owner, repo, tag, headers):
     return upload_url, release_id
 
 
-def describe_release(tag, owner, repo, release_id, headers):
+def describe_release(tag, release_id, headers, release_description):
     """Creates a description of the release"""
 
-    update_data = {"body": generate_release_description(tag=tag)}
-    update_release_url = f"https://api.github.com/repos/{owner}/{repo}/releases/{release_id}"
+    update_data = {"body": release_description}
+    update_release_url = f"https://api.github.com/repos/{owner_name}/{repo_name}/releases/{release_id}"
     response = requests.patch(update_release_url, json=update_data, headers=headers)
 
     if response.status_code != 200:
-        delete_release_and_tag(tag=tag, owner=owner, release_id=release_id, headers=headers, repo=repo)
+        delete_release_and_tag(tag=tag, release_id=release_id, headers=headers)
         raise Exception(f"Error when creating release description, error code {response.status_code}.")
 
     print("Changed release description.")
 
 
-def change_release_name(tag, headers, owner, repo, release_id):
+def change_release_name(tag, headers, release_id):
     """Creates a title for the release"""
 
-    edit_release_url = f"https://api.github.com/repos/{owner}/{repo}/releases/{release_id}"
+    edit_release_url = f"https://api.github.com/repos/{owner_name}/{repo_name}/releases/{release_id}"
     data = {"name": tag}
     response = requests.patch(edit_release_url, json=data, headers=headers)
 
     if response.status_code != 200:
-        delete_release_and_tag(tag=tag, owner=owner, release_id=release_id, headers=headers, repo=repo)
+        delete_release_and_tag(tag=tag, release_id=release_id, headers=headers)
         raise Exception(f"Error when changing the release name, error code {response.status_code}.")
 
     print("Changed title of the release.")
 
 
-def upload_zip_to_release(zip_file_path, headers, upload_url, tag, owner, release_id, repo):
+def upload_zip_to_release(headers, upload_url, tag, release_id):
     """Uploads a zip file to the release"""
 
     with open(zip_file_path, 'rb') as zip_file:
@@ -131,17 +123,17 @@ def upload_zip_to_release(zip_file_path, headers, upload_url, tag, owner, releas
         response = requests.post(upload_url, headers=headers, data=zip_file.read())
 
     if response.status_code != 201:
-        delete_release_and_tag(tag=tag, owner=owner, release_id=release_id, headers=headers, repo=repo)
+        delete_release_and_tag(tag=tag, release_id=release_id, headers=headers)
         raise Exception(f"Error when changing the release name, error code {response.status_code}.")
 
     print("Zip file uploaded.")
 
 
-def delete_release_and_tag(tag, owner, repo, release_id, headers):
+def delete_release_and_tag(tag, release_id, headers):
     """Deletes the release"""
 
     # delete release
-    delete_release_url = f"https://api.github.com/repos/{owner}/{repo}/releases/{release_id}"
+    delete_release_url = f"https://api.github.com/repos/{owner_name}/{repo_name}/releases/{release_id}"
     response_delete_release = requests.delete(delete_release_url, headers=headers)
 
     # error handling
@@ -149,7 +141,7 @@ def delete_release_and_tag(tag, owner, repo, release_id, headers):
         raise Exception(f"Failed to delete release, error code {response_delete_release.status_code}.")
 
     # delete tag
-    delete_tag_url = f"https://api.github.com/repos/{owner}/{repo}/git/refs/tags/{tag}"
+    delete_tag_url = f"https://api.github.com/repos/{owner_name}/{repo_name}/git/refs/tags/{tag}"
     response_delete_tag = requests.delete(delete_tag_url, headers=headers)
 
     # error handling
@@ -159,46 +151,24 @@ def delete_release_and_tag(tag, owner, repo, release_id, headers):
     print("Release and tag has been removed")
 
 
-class UploadReleaseAsset:
-
-    # creating a folder(dist) with an exe file
-    os.chdir(r"D:\pythonProjects\Overwatch_Rank_Tracker")
-    subprocess.run(["pyinstaller", "Overwatch Rank Tracker.spec"])
-
-    # personal information
-    github_token = ""
+def main():
 
     # variables
-    owner = 'enexety'
-    repo = 'Overwatch_Rank_Tracker'
-    headers = {"Authorization": f"Bearer {github_token}", "Accept": "application/vnd.github.v3+json", "Content-Type": "application/zip"}
-    project_folder_name = "Overwatch Rank Tracker"
-    new_tag = get_new_tag(owner=owner, repo=repo, headers=headers)
-
-    # paths
-    project_path = os.getcwd()
-    zip_file_path = os.path.join(project_path, "Overwatch Rank Tracker.zip")
-    dist_path = os.path.join(project_path, "dist")
-    temporary_folder = os.path.join(project_path, project_folder_name)
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github.v3+json", "Content-Type": "application/zip"}
+    new_tag = get_new_tag(headers=headers)
+    release_description = generate_release_description(tag=new_tag)
 
     # processes
     try:
-        create_zip_file(zip_file_path=zip_file_path, dist_path=dist_path, project_folder_name=project_folder_name, temporary_folder=temporary_folder)
-        upload_url, release_id = create_release(owner=owner, repo=repo, headers=headers, tag=new_tag)
-        change_release_name(tag=new_tag, headers=headers, owner=owner, repo=repo, release_id=release_id)
-        describe_release(tag=new_tag, owner=owner, repo=repo, release_id=release_id, headers=headers)
-        upload_zip_to_release(zip_file_path=zip_file_path, headers=headers, upload_url=upload_url, repo=repo, tag=new_tag, release_id=release_id, owner=owner)
+        upload_url, release_id = create_release(headers=headers, tag=new_tag, release_description=release_description)
+        change_release_name(tag=new_tag, headers=headers, release_id=release_id)
+        describe_release(tag=new_tag, release_id=release_id, headers=headers, release_description=release_description)
+        upload_zip_to_release(headers=headers, upload_url=upload_url, tag=new_tag, release_id=release_id)
 
-    # time to see what's wrong
+    # error handle, time to see what is wrong
     except Exception as e:
-        print(f"\nError. {e}Press any button to finish...")
-        keyboard.read_event()
+        print(f"\nError. {e}")
 
-    # code passed successfully
-    else:
-        print("\nCode was executed successfully.\n")
-        seconds = 5
-        for i in range(seconds, 0, -1):
-            print(f"Window closes after {seconds} seconds.")
-            seconds -= 1
-            time.sleep(1)
+
+if __name__ == "__main__":
+    main()
