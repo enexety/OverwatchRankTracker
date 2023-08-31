@@ -52,7 +52,7 @@ def check_for_updates(owner_name: str, repo_name: str, current_version: str):
             if question:
 
                 # run auto-update
-                subprocess.run(['python', 'Updater.exe'])
+                subprocess.run(['Updater.exe'])
 
                 # finishing the main process
                 sys.exit()
@@ -142,8 +142,7 @@ def create_scrollbar(frame: Frame, widget: Text):
 
 def create_table_widget(table: ttk.Treeview):
     """Create table-widget, columns = 9
-       for 800x600, full length = 796
-       if you set the minimum length for all columns, full length = 598"""
+       for 800x600, full length = 796"""
 
     # delete information from the table if it exists
     if table.get_children():
@@ -151,11 +150,11 @@ def create_table_widget(table: ttk.Treeview):
 
     # set parameters
     table.column('Status', minwidth=47, width=66, anchor='center', stretch=True)
-    table.column('Nickname', minwidth=104, width=126, anchor='center', stretch=True)
+    table.column('Nickname', minwidth=122, width=144, anchor='center', stretch=True)
     table.column('Season', minwidth=47, width=66, anchor='center', stretch=True)
-    table.column('Tank', minwidth=87, width=106, anchor='center', stretch=True)
-    table.column('Damage', minwidth=87, width=106, anchor='center', stretch=True)
-    table.column('Support', minwidth=87, width=106, anchor='center', stretch=True)
+    table.column('Tank', minwidth=87, width=100, anchor='center', stretch=True)
+    table.column('Damage', minwidth=87, width=100, anchor='center', stretch=True)
+    table.column('Support', minwidth=87, width=100, anchor='center', stretch=True)
     table.column('Play time', minwidth=72, width=91, anchor='center', stretch=True)
     table.column('Win rate', minwidth=54, width=73, anchor='center', stretch=True)
     table.column('KD', minwidth=37, width=56, anchor='center', stretch=True)
