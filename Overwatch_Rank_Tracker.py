@@ -7,7 +7,7 @@ import functions
 
 
 # global variables
-version = "v0.0.3"
+version = "v0.0.4"
 path_to_file = 'settings_and_battle_tags.json'
 
 # personal information for GitHub Gist and e.t.c, used for sending logs

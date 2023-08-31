@@ -22,11 +22,6 @@ error_battle_tags = []
 # initial settings
 max_workers = 6
 
-# # open text-widget
-#         text_frame.pack(side="left", fill="both", expand=True)
-#         text_widget.pack(widget_info)
-# text_frame: Frame, text_widget: Text
-
 
 def check_for_updates(owner_name: str, repo_name: str, current_version: str):
     """Checks the current version against the current version and starts an external update process if necessary."""
@@ -155,15 +150,15 @@ def create_table_widget(table: ttk.Treeview):
         table.delete(*table.get_children())
 
     # set parameters
-    table.column('Status', minwidth=47, width=69, anchor='center', stretch=True)
-    table.column('Nickname', minwidth=80, width=102, anchor='center', stretch=True)
-    table.column('Season', minwidth=47, width=69, anchor='center', stretch=True)
-    table.column('Tank', minwidth=87, width=109, anchor='center', stretch=True)
-    table.column('Damage', minwidth=87, width=109, anchor='center', stretch=True)
-    table.column('Support', minwidth=87, width=109, anchor='center', stretch=True)
-    table.column('Play time', minwidth=72, width=94, anchor='center', stretch=True)
-    table.column('Win rate', minwidth=54, width=76, anchor='center', stretch=True)
-    table.column('KD', minwidth=37, width=59, anchor='center', stretch=True)
+    table.column('Status', minwidth=47, width=66, anchor='center', stretch=True)
+    table.column('Nickname', minwidth=104, width=126, anchor='center', stretch=True)
+    table.column('Season', minwidth=47, width=66, anchor='center', stretch=True)
+    table.column('Tank', minwidth=87, width=106, anchor='center', stretch=True)
+    table.column('Damage', minwidth=87, width=106, anchor='center', stretch=True)
+    table.column('Support', minwidth=87, width=106, anchor='center', stretch=True)
+    table.column('Play time', minwidth=72, width=91, anchor='center', stretch=True)
+    table.column('Win rate', minwidth=54, width=73, anchor='center', stretch=True)
+    table.column('KD', minwidth=37, width=56, anchor='center', stretch=True)
 
     # push table and columns
     table.heading('Status', text='Status')
@@ -400,7 +395,7 @@ def process_get_content(battle_tag: str, owner_name: str, token: str):
     global user_want_stop
 
     # variables
-    nickname = battle_tag.split("-")[0]
+    nickname = battle_tag.split("-")[0] + '#' + battle_tag.split("-")[1]
     tank_rating = '-'
     damage_rating = '-'
     support_rating = '-'
