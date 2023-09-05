@@ -16,6 +16,7 @@ dist_path = os.path.join(project_path, "dist")
 temporary_folder = os.path.join(project_path, "Overwatch Rank Tracker")
 temporary_folder2 = os.path.join(project_path, "Temporary Folder")
 icon_path = os.path.join(project_path, r"resources\icon.ico")
+settings_path = os.path.join(project_path, "settings_and_battle_tags.json")
 
 
 def main():
@@ -23,6 +24,11 @@ def main():
     # creating a folder(dist) with an exe file
     os.chdir(project_path)
     subprocess.run(["pyinstaller", "Overwatch_Rank_Tracker.py", "--onefile", "--noconsole", "--icon", icon_path, "--name", "Overwatch Rank Tracker"])
+    subprocess.run(["pyinstaller", "Updater.py", "--onefile", "--name", "Updater"])
+
+    # add example settings file to dist
+    if not os.path.exists(os.path.join(dist_path, "settings_and_battle_tags.json")):
+        shutil.copy(settings_path, dist_path)
 
     print('\nFolder with exe file has been created.')
 
