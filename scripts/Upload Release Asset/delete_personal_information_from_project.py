@@ -12,18 +12,20 @@ def main():
     project_path = os.path.sep.join(path_parts[:index + 1])
     code_path = os.path.join(project_path, "Overwatch_Rank_Tracker.py")
 
-    # read and replace personal data in functions.py
+    # read functions.py
     with open(code_path, 'r') as file:
         content = file.read()
 
+    # replace token in functions.py
     content = re.sub(r'token = "[^"]*"', 'token = ""', content)
 
-    # rewrite personal data in functions.py
+    # rewrite token in functions.py
     with open(code_path, 'w') as file:
         file.write(content)
 
     print("\nToken have been removed.")
 
 
+# run
 if __name__ == "__main__":
     main()

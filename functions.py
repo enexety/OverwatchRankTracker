@@ -1,30 +1,38 @@
 import concurrent
+import io
 import os
+import re
 import signal
 import subprocess
-from tkinter import ttk, messagebox, Text, Frame, Tk, Button
+from tkinter import ttk, messagebox, Text, Tk, Button, Toplevel
 import tkinter as tk
 import requests
 from concurrent.futures import ThreadPoolExecutor
 import json
 import sys
+import logging
 
+
+# set logging
+logging.basicConfig(level=logging.DEBUG, format='[%(asctime)s], %(levelname)s: %(message)s in %(name)s.py', datefmt='%Y-%m-%d, %H:%M:%S')
+logger = logging.getLogger(__name__)
 
 # create global variables
 public_profiles = []
 limited_profiles = []
 private_profiles = []
-check_first_call_again = False
 user_want_stop = False
-widget_info = None
 error_battle_tags = []
+text_widget_content = ""
 
 # initial settings
 max_workers = 6
 
 
-def check_for_updates(owner_name: str, repo_name: str, current_version: str):
+def check_for_updates(owner_name: str, repo_name: str, current_version: str, token: str):
     """Checks the current version against the current version and starts an external update process if necessary."""
+
+    response = None
 
     try:
 
@@ -46,7 +54,7 @@ def check_for_updates(owner_name: str, repo_name: str, current_version: str):
         if latest_version != current_version:
 
             # ask the user if he wants to upgrade
-            question = messagebox.askyesno("Update is available", "Do you want to update?")
+            question = messagebox.askyesno(title="Update is available", message="Do you want to update?")
 
             # user wants updates
             if question:
@@ -57,56 +65,290 @@ def check_for_updates(owner_name: str, repo_name: str, current_version: str):
                 # finishing the main process
                 sys.exit()
 
+    # no internet connection - no update
     except requests.exceptions.ConnectionError:
         messagebox.showerror("Update Error", "Internet connection problem.")
 
-    except Exception as e:
-        messagebox.showerror("Update Error", f"Error checking for updates.\n{e}")
+    # unexpected error
+    except Exception as error:
+        title, text = get_logs(error=error)
+        sending_logs(owner_name=owner_name, token=token, title=title, text=text, api_response=response.json(), status_code=response.status_code)
+        messagebox.showerror("Update Error", f"Unexpected error occurred while checking for updates. \n{error}")
 
 
-def sending_logs(api_response: dict, owner_name: str, token: str):
-    """Sending logs, this is used only for a specific unexpected error."""
+def get_logs(error: Exception):
+    """Creates a log entry for an error and returns its title and full text."""
 
-    # If it has a token and username
+    log_buffer = io.StringIO()
+    handler = logging.StreamHandler(log_buffer)
+    handler.setFormatter(logging.Formatter('[%(asctime)s], %(levelname)s: %(message)s in %(name)s.py', datefmt='%Y-%m-%d, %H:%M:%S'))
+    logger.addHandler(handler)
+    logger.error(f'{error}', exc_info=True)
+    log_text = log_buffer.getvalue()
+    log_title = log_text.split('\n')[0]
+
+    return log_title, log_text
+
+
+def sending_logs(api_response: dict, owner_name: str, token: str, title: str, text: str, status_code: int):
+    """Sending logs, this is used only for an unexpected error."""
+
     try:
 
-        # convert to string
-        api_response = json.dumps(api_response, indent=4)
-
-        # send log
-        requests.post(
-            "https://api.github.com/gists",
-            auth=(owner_name, token),
-            json={
-                "description": "Error log Overwatch Rank Tracker",
-                "public": False,
-                "files": {
-                    "api_response.json": {"content": api_response}
-                }
+        # content
+        data = {
+            "Date": re.search(r'\[(.*?)]', text).group(1),
+            "File": re.search(r'\w+\.py', text).group(0),
+            "Error": re.search(r': (.*?)(?= in)', text).group(1),
+            "Traceback": {
+                'content': text.splitlines()[1:],
+                'type': 'text/plain'
+            },
+            "Response status code": status_code,
+            "Response content": {
+                'content': api_response,
+                'type': 'application/json'
             }
-        )
+        }
 
-    # error handle
+        # send logs
+        requests.post("https://api.github.com/gists", auth=(owner_name, token),
+                      json={
+                          "description": title,
+                          "public": False,
+                          "files": {
+                              "content.json": {
+                                  "content": json.dumps(data, indent=4)
+                              }
+                          }
+        })
+
+    # error handling
     except requests.exceptions.HTTPError:
         pass
 
 
+def create_loading_text(ort):
+    """Adds the text "Loading..." to the widget_frame."""
+
+    label = tk.Label(ort.widget_frame, text='Loading...', font=('Calibri', 13, 'bold'), fg='#A0A0A0', bg="#2B2B2B")
+    label.place(relx=0.5, rely=0.5, anchor='center')
+
+
+def create_table_widget(ort):
+    """Create table-widget. Columns = 9, full length for 800x600 = 796."""
+
+    # set table
+    table_widget = ttk.Treeview(ort.widget_frame, columns=['Status', 'Nickname', 'Season', 'Tank', 'Damage', 'Support', 'Play time', 'Win rate', 'KD'], show='headings', height=26)
+
+    # set parameters
+    table_widget.column('Status', minwidth=47, width=66, anchor='center', stretch=True)
+    table_widget.column('Nickname', minwidth=134, width=156, anchor='center', stretch=True)
+    table_widget.column('Season', minwidth=35, width=57, anchor='center', stretch=True)
+    table_widget.column('Tank', minwidth=87, width=100, anchor='center', stretch=True)
+    table_widget.column('Damage', minwidth=87, width=100, anchor='center', stretch=True)
+    table_widget.column('Support', minwidth=87, width=100, anchor='center', stretch=True)
+    table_widget.column('Play time', minwidth=72, width=91, anchor='center', stretch=True)
+    table_widget.column('Win rate', minwidth=54, width=73, anchor='center', stretch=True)
+    table_widget.column('KD', minwidth=37, width=56, anchor='center', stretch=True)
+
+    # push table and columns
+    table_widget.heading('Status', text='Status')
+    table_widget.heading('Nickname', text='Nickname')
+    table_widget.heading('Season', text='Season')
+    table_widget.heading('Tank', text='Tank')
+    table_widget.heading('Damage', text='Damage')
+    table_widget.heading('Support', text='Support')
+    table_widget.heading('Play time', text='Play time')
+    table_widget.heading('Win rate', text='Win rate')
+    table_widget.heading('KD', text='KD')
+    table_widget.pack(fill='both', expand=True)
+
+    # set colors for certain tags
+    table_widget.tag_configure(tagname='Limited', background='#460000')
+    table_widget.tag_configure(tagname='Private', background='#460000')
+
+    # set widget for further closure
+    ort.widget = table_widget
+
+
+def create_text_widget(ort):
+    """Create a text widget and add information to it from a local file or previously used ready text."""
+
+    # create text widget
+    text_widget = tk.Text(ort.widget_frame, font=('Calibri', 13, 'bold'), fg='#A0A0A0', insertbackground='white', padx=10, pady=15, bg="#2B2B2B", relief='flat')
+    text_widget.pack(side='left', fill='both', expand=True)
+
+    # user has not entered information before
+    global text_widget_content
+    if not text_widget_content:
+        try:
+
+            # read battle-tags from file
+            file_content = read_file(path=ort.path_to_file)
+            battle_tags = file_content.get("Battle-tags", [])
+            if battle_tags:
+
+                # convenient visual design
+                text_widget_content = ",\n".join(battle_tags)
+
+        # file changed outside or not exist - rewrite the file
+        except (json.decoder.JSONDecodeError, FileNotFoundError, AttributeError):
+            overwriting_file(full_rewrite=True, path=ort.path_to_file)
+
+    # insert information into a text widget
+    text_widget.insert('1.0', text_widget_content)
+
+    # create scroll-bar
+    text_widget.scrollbar = ttk.Scrollbar(ort.widget_frame, command=text_widget.yview)
+    text_widget.scrollbar.pack(side='right', fill='y', pady=10)
+    text_widget.config(yscrollcommand=text_widget.scrollbar.set)
+
+    # set widget for further closure
+    ort.widget = text_widget
+
+
+def destroy_widget(ort):
+    """Removing a widget from the main window."""
+
+    # user may have already entered some information
+    global text_widget_content
+
+    # for text-widget
+    if type(ort.widget) is Text:
+
+        # remove the scroll-bar from widget_frame
+        ort.widget.scrollbar.destroy()
+
+        # record text-widget content
+        text_widget_content = ort.widget.get("1.0", tk.END).strip()
+
+    # destroy widget
+    ort.widget.destroy()
+    ort.widget = None
+
+
+def exit_main_window(ort):
+    """If you forgot to save the file, you are prompted to do so."""
+
+    global text_widget_content
+
+    # get battle-tags from file
+    battle_tags_file = read_file(path=ort.path_to_file).get("Battle-tags", [])
+
+    # current widget - text widget, get current content
+    if type(ort.widget) is Text:
+        text_widget_content = ort.widget.get("1.0", tk.END).strip()
+
+    # content adjustment, split data by commas, remove extra spaces in each battle-tag
+    text_widget_content = [tag.strip() for tag in text_widget_content.split(",")]
+
+    # question: save text or not if text-widget content and file content different
+    if set(battle_tags_file) != set(text_widget_content):
+        if messagebox.askquestion(title='Exit', message='Are you want to save your battle-tags list?') == 'yes':
+            save_button_click(widget=ort.widget, path_to_file=ort.path_to_file)
+
+    # close
+    os.kill(os.getpid(), signal.SIGTERM)
+
+
+def window_centering(window: Tk or Toplevel, window_width: int, window_height: int):
+    """Centering the window so that it starts in the middle."""
+
+    # display sizing
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+
+    # calculate the x and y coordinates to center the window on the screen
+    x_cord = int((screen_width / 2) - (window_width / 2))
+    y_cord = int((screen_height / 2) - (window_height / 2))
+
+    # set the window's geometry to center it on the screen
+    window.geometry(f"{window_width}x{window_height}+{x_cord}+{y_cord}")
+
+
+def open_settings_window(ort, window: Tk):
+    """Setting window."""
+
+    global max_workers
+
+    # set window-setting
+    settings_window = tk.Toplevel(window)
+    settings_window.title("Settings")
+    settings_window.resizable(False, False)  # prevent window resizing
+    settings_window.attributes('-topmost', True)  # window on top
+    settings_window.grab_set()  # make the settings window modal (blocks access to other windows while the window is open)
+    settings_window.protocol("WM_DELETE_WINDOW", settings_window.destroy)  # custom close
+    settings_window_height = 120
+    settings_window_width = 190
+    window_centering(window=settings_window, window_width=settings_window_width, window_height=settings_window_height)
+
+    # empty cell for top indent
+    empty_label_top = tk.Label(settings_window)
+    empty_label_top.grid(row=0, column=0)
+
+    # "Number of requests" text
+    label = tk.Label(settings_window, text="Number of requests")
+    label.grid(row=1, column=0, padx=5)
+
+    # "Number of requests" field for entering number
+    num_requests_var = tk.StringVar(value=str(max_workers))
+    entry = tk.Spinbox(settings_window, from_=1, to=6, textvariable=num_requests_var, width=5)
+    entry.grid(row=1, column=1, padx=5)
+
+    # button save
+    x_button = settings_window_width // 2
+    y_button = settings_window_height - 30
+    setting_save_button = ttk.Button(settings_window, text="Save", width=8, command=lambda: settings_save_click())
+    setting_save_button.place(x=x_button, y=y_button, anchor='center')
+
+    # top right buttons style
+    settings_window.wm_attributes("-toolwindow", 1) if tk.TkVersion >= 8.5 and sys.platform.startswith('win') else None
+
+    def settings_save_click():
+        """Save max_workers value and destroy window."""
+
+        # change max_workers value
+        global max_workers
+        max_workers = int(num_requests_var.get())
+
+        overwriting_file(max_workers_bool=True, path=ort.path_to_file)
+        settings_window.destroy()
+
+
+def set_settings(path_to_file: str):
+    """Set settings for further use in the code."""
+
+    try:
+
+        # read file
+        file_content = read_file(path=path_to_file)
+
+        # set settings
+        global max_workers
+        max_workers = file_content['Settings']['max_workers']
+
+    # file changed outside or not exist - rewrite the file
+    except (json.decoder.JSONDecodeError, FileNotFoundError, AttributeError):
+        overwriting_file(full_rewrite=True, path=path_to_file)
+
+
 def read_file(path: str):
-    """Returns the contents of a file"""
+    """Returns the contents of a file."""
 
     with open(path, 'r') as file:
         return json.load(file)
 
 
 def write_file(path: str, paste: dict):
-    """Record file with new content"""
+    """Record file with new content."""
 
     with open(path, 'w') as file:
         json.dump(paste, file, indent=2)
 
 
 def overwriting_file(path: str, max_workers_bool: bool = False, battle_tags_bool: bool = False, battle_tags: list = None, full_rewrite: bool = False):
-    """Overwrite file or certain blocks in file"""
+    """Overwrite file or certain blocks in file."""
 
     if battle_tags is None:
         battle_tags = []
@@ -132,179 +374,98 @@ def overwriting_file(path: str, max_workers_bool: bool = False, battle_tags_bool
         write_file(path=path, paste={"Settings": {"max_workers": int(max_workers)}, "Battle-tags": battle_tags})
 
 
-def create_scrollbar(frame: Frame, widget: Text):
-    """It creates scrollbar"""
-
-    scrollbar = ttk.Scrollbar(frame, command=widget.yview)
-    scrollbar.pack(side='right', fill='y', pady=10)
-    widget.config(yscrollcommand=scrollbar.set)
-
-
-def create_table_widget(table: ttk.Treeview):
-    """Create table-widget, columns = 9
-       for 800x600, full length = 796"""
-
-    # delete information from the table if it exists
-    if table.get_children():
-        table.delete(*table.get_children())
-
-    # set parameters
-    table.column('Status', minwidth=47, width=66, anchor='center', stretch=True)
-    table.column('Nickname', minwidth=122, width=144, anchor='center', stretch=True)
-    table.column('Season', minwidth=47, width=66, anchor='center', stretch=True)
-    table.column('Tank', minwidth=87, width=100, anchor='center', stretch=True)
-    table.column('Damage', minwidth=87, width=100, anchor='center', stretch=True)
-    table.column('Support', minwidth=87, width=100, anchor='center', stretch=True)
-    table.column('Play time', minwidth=72, width=91, anchor='center', stretch=True)
-    table.column('Win rate', minwidth=54, width=73, anchor='center', stretch=True)
-    table.column('KD', minwidth=37, width=56, anchor='center', stretch=True)
-
-    # push table and columns
-    table.heading('Status', text='Status')
-    table.heading('Nickname', text='Nickname')
-    table.heading('Season', text='Season')
-    table.heading('Tank', text='Tank')
-    table.heading('Damage', text='Damage')
-    table.heading('Support', text='Support')
-    table.heading('Play time', text='Play time')
-    table.heading('Win rate', text='Win rate')
-    table.heading('KD', text='KD')
-    table.pack(fill='both', expand=True)
-
-    # set colors for certain tags
-    table.tag_configure('Limited', background='#460000')
-    table.tag_configure('Private', background='#460000')
-
-
-def add_information_text_widget(text_widget: Text, path: str):
-    """If the file with Battle-tags exists > add these Battle-tags to the text-widget
-       If the file with Battle-tags does not exist > it is ignored"""
-
-    try:
-        file_content = read_file(path=path)
-
-        # add battle tags in text-widget
-        battle_tags = file_content.get("Battle-tags", [])
-        if battle_tags:
-            formatted_tags = ",\n".join(battle_tags)  # convenient visual design
-            text_widget.insert('1.0', formatted_tags)
-
-        # set settings
-        global max_workers
-        max_workers = file_content['Settings']['max_workers']
-
-    # file changed outside or not exist - rewrite the file
-    except (json.decoder.JSONDecodeError, FileNotFoundError, AttributeError):
-        overwriting_file(full_rewrite=True, path=path)
-
-
-def save_button_click(text_widget: Text, path: str):
-    """Save battle-tags from text-widget"""
+def save_button_click(widget: Text, path_to_file: str):
+    """Save battle-tags from text-widget."""
 
     # get data from text-widget
-    data = text_widget.get('1.0', tk.END).strip()
+    data = widget.get('1.0', tk.END).strip()
 
     # split data by commas, remove extra spaces in each battle-tag
     new_battle_tags = [tag.strip() for tag in data.split(",")]
 
     # rewrite file with new datas
-    overwriting_file(battle_tags_bool=True, battle_tags=new_battle_tags, path=path)
+    overwriting_file(battle_tags_bool=True, battle_tags=new_battle_tags, path=path_to_file)
 
 
-def battle_tags_button_click(save_button: Button, table: ttk.Treeview, text_frame: Frame, text_widget: Text, path: str):
-    """Open text-widget, change "Link" button to "Save" button"""
-
-    global user_want_stop, check_first_call_again
+def battle_tags_button_click(ort, save_button: Button):
+    """Open text-widget, change "Link" button to "Save" button."""
 
     # flag for stop check
+    global user_want_stop
     user_want_stop = True
 
-    # flag for get new information from text widget
-    check_first_call_again = False
-
     # change button
-    save_button.configure(text='Save', command=lambda: save_button_click(text_widget, path))
+    save_button.configure(text='Save', command=lambda: save_button_click(widget=ort.widget, path_to_file=ort.path_to_file))
 
     # remove table-widget
-    table.pack_forget()
+    destroy_widget(ort=ort)
 
-    # open text-widget
-    text_frame.pack(side="left", fill="both", expand=True)
-    text_widget.pack(widget_info)
+    # create text-widget
+    create_text_widget(ort=ort)
 
 
-def check_button_click(check_button: Button, save_button: Button, text_frame: Frame, table: ttk.Treeview, text_widget: Text, path: str, owner_name: str, token: str):
-    """Performs a series of actions to retrieve information about each user entered in the text widget field"""
+def check_button_click(ort, check_button: Button, save_button: Button):
+    """Performs a series of actions to retrieve information about each user entered in the text widget field."""
 
+    # to avoid problems in further clicks
     global user_want_stop
-    user_want_stop = False  # to avoid problems in further clicks
-    check_button.configure(state='disabled')  # block button
+    user_want_stop = False
+
+    # block button
+    check_button.configure(state='disabled')
 
     try:
 
         # change button
-        save_button.configure(text='Battle-tags', command=lambda: battle_tags_button_click(save_button=save_button, table=table, text_widget=text_widget, text_frame=text_frame, path=path))
+        save_button.configure(text='Battle-tags', command=lambda: battle_tags_button_click(ort=ort, save_button=save_button))
 
-        # push information on table
-        battle_tags = text_widget.get('1.0', tk.END).strip()
+        # get information from text widget
+        battle_tags = ort.widget.get('1.0', tk.END).strip()
+
+        # information available
         if battle_tags:
+
+            # battle-tags list
             battle_tags = [tag.strip() for tag in battle_tags.split(",")]
+
+            # delete text-widget
             if not user_want_stop:
+                destroy_widget(ort=ort)
 
-                global widget_info, check_first_call_again
-
-                # flag to avoid errors. When the text_widget is forgotten, you cannot get info from it. This flag is only needed to handle consecutive clicks of the Check button.
-                if not check_first_call_again:
-
-                    # get info from text_widget
-                    widget_info = text_widget.pack_info()
-                    text_widget.pack_forget()
-
-                    # change flag
-                    check_first_call_again = True
-
-                # add temporarily loading text
-                else:
-
-                    # remove table-widget
-                    table.pack_forget()
-
-                    # loading text
-                    text_frame.pack(side="left", fill="both", expand=True)
-
+                # push information on table
                 try:
-                    get_content(battle_tags=battle_tags, table=table, text_frame=text_frame, owner_name=owner_name, token=token)
+                    get_content_and_push(ort=ort, battle_tags=battle_tags)
 
+                # no internet connection - to bring it all back and give an error
                 except requests.exceptions.ConnectionError:
 
-                    # remove table-widget
-                    table.pack_forget()
-
-                    # open text-widget
-                    text_frame.pack(side="left", fill="both", expand=True)
-                    text_widget.pack(widget_info)
+                    # revert the text widget back
+                    destroy_widget(ort=ort)
+                    create_text_widget(ort=ort)
 
                     # change button back
-                    save_button.configure(text='Save', command=lambda: save_button_click(text_widget, path))
+                    save_button.configure(text='Save', command=lambda: save_button_click(widget=ort.widget, path_to_file=ort.path_to_file))
 
+                    # message error
                     messagebox.showerror("Connection Error", "Internet connection problem.")
 
+        # no battle-tags - raise error
         else:
             raise ValueError
 
-    # when file with battle-tags not exist
+    # error window - no battle tags
     except ValueError:
         ThreadPoolExecutor().submit(lambda: messagebox.showerror(title='Error', text='List of battle tags is empty.'))
 
-    check_button.configure(state='normal')  # unblock button
+    # unblock button
+    check_button.configure(state='normal')
+
+    # reset flag
     user_want_stop = False
 
 
-def get_content(battle_tags: list, table: ttk.Treeview, text_frame: Frame, owner_name: str, token: str):
-    """1-st process of check_button_click
-       Get content > record on right order > push to table"""
-
-    global user_want_stop
+def get_content_and_push(ort, battle_tags: list):
+    """Getting the information for each of the battle-tags and adding this to table-widget in the correct order."""
 
     # clear content from lists
     private_profiles.clear()
@@ -314,29 +475,11 @@ def get_content(battle_tags: list, table: ttk.Treeview, text_frame: Frame, owner
     # not to create more than one identical error window
     error_occurred = False
 
-    def request_processing(one_battle_tag):
-        """2-nd process of check_button_click
-           Add information in 3 lists"""
-
-        information = process_get_content(battle_tag=one_battle_tag, owner_name=owner_name, token=token)
-
-        # if needed exit
-        if user_want_stop:
-            return
-
-        # record 3 different types to the relevant lists
-        if information:
-            if information[0] == 'Public':
-                public_profiles.append(information)
-            elif information[0] == 'Limited':
-                limited_profiles.append(information)
-            else:
-                private_profiles.append(information)
-
     # multithreaded request retrieval
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(request_processing, battle_tag) for battle_tag in battle_tags]
+        futures = [executor.submit(process_and_sort_account, ort, battle_tag) for battle_tag in battle_tags]
 
+        global user_want_stop
         if user_want_stop:
             return
 
@@ -355,18 +498,15 @@ def get_content(battle_tags: list, table: ttk.Treeview, text_frame: Frame, owner
                 # one error-window no more
                 if not error_occurred:
                     error_occurred = True
-                    ThreadPoolExecutor().submit(
-                        lambda: messagebox.showerror(title='Error', text='Too many requests: Reduce the number of requests in the settings.\n'
-                                                                         'If it does not help, there may be a problem:\n\n'
-                                                                         '1. Problem in the server.\n'
-                                                                         '2. Check if you added the battle tags correctly.\n'))
+                    ThreadPoolExecutor().submit(lambda: messagebox.showerror(title='Error', text='Too many requests: Reduce the number of requests in the settings.\n'
+                                                                                                 'If it does not help, there may be a problem:\n\n'
+                                                                                                 '1. Problem in the server.\n'
+                                                                                                 '2. Check if you added the battle tags correctly.\n'))
 
     if user_want_stop:
         return
 
-    # change widget on table
-    text_frame.pack_forget()
-    create_table_widget(table=table)
+    create_table_widget(ort=ort)
 
     # error window if battle-tag(s) was not found
     if len(error_battle_tags) > 0:
@@ -376,22 +516,38 @@ def get_content(battle_tags: list, table: ttk.Treeview, text_frame: Frame, owner
     for unit in public_profiles:
         if user_want_stop:
             return
-        table.insert('', tk.END, values=unit, tags=['Public'])
+        ort.widget.insert('', tk.END, values=unit, tags=['Public'])
     for unit in limited_profiles:
         if user_want_stop:
             return
-        table.insert('', tk.END, values=unit, tags=['Limited'])
+        ort.widget.insert('', tk.END, values=unit, tags=['Limited'])
     for unit in private_profiles:
         if user_want_stop:
             return
-        table.insert('', tk.END, values=unit, tags=['Private'])
+        ort.widget.insert('', tk.END, values=unit, tags=['Private'])
 
 
-def process_get_content(battle_tag: str, owner_name: str, token: str):
-    """3-rd process of check_button_click
-       Get content from API and return this data"""
+def process_and_sort_account(ort, one_battle_tag: str):
+    """Sort an account by status into a separate list."""
 
-    global user_want_stop
+    information = get_and_process_single_account_info(battle_tag=one_battle_tag, owner_name=ort.owner_name, token=ort.token)
+
+    # if needed exit
+    if user_want_stop:
+        return
+
+    # record 3 different types to the relevant lists
+    if information:
+        if information[0] == 'Public':
+            public_profiles.append(information)
+        elif information[0] == 'Limited':
+            limited_profiles.append(information)
+        else:
+            private_profiles.append(information)
+
+
+def get_and_process_single_account_info(battle_tag: str, owner_name: str, token: str):
+    """Getting information from API on one account and then processing it."""
 
     # variables
     nickname = battle_tag.split("-")[0] + '#' + battle_tag.split("-")[1]
@@ -403,15 +559,16 @@ def process_get_content(battle_tag: str, owner_name: str, token: str):
     kd = '-'
     season = '-'
 
-    # avoiding repeated duplication of windows with an error, list for battle-tags with problem
-    global error_battle_tags
-
+    global user_want_stop
     if user_want_stop:
         return
 
     # get content from API
-    response = requests.get(f'https://overfast-api.tekrop.fr/players/{battle_tag}').json()
+    response = requests.get(f'https://overfast-api.tekrop.fr/players/{battle_tag}')
+    status_code = response.status_code
+    response = response.json()
 
+    # record and return data
     try:
         status = str(response['summary']['privacy']).capitalize()
         if status == 'Public':
@@ -457,13 +614,19 @@ def process_get_content(battle_tag: str, owner_name: str, token: str):
                     return status, nickname, season, tank_rating, damage_rating, support_rating, time_played, win_rate, kd
 
                 # unexpected error
-                except Exception as e:  # noqa: F841
+                except Exception as error:
                     if user_want_stop:
                         return
-                    ThreadPoolExecutor().submit(lambda: error_window(title=f'{battle_tag}', text=f'Sorry, something went wrong. {e}'))  # noqa: F821
-                    sending_logs(api_response=response, owner_name=owner_name, token=token)
 
-            else:  # no competitive
+                    # send logs
+                    title, text = get_logs(error=error)
+                    sending_logs(owner_name=owner_name, token=token, title=title, text=text, api_response=response, status_code=status_code)
+
+                    # error window
+                    ThreadPoolExecutor().submit(lambda e=error: messagebox.showerror(title=f'{battle_tag}', text=f'Sorry, something went wrong. {e}'))
+
+            # no competitive
+            else:
                 status = 'Limited'
                 return status, nickname, season, tank_rating, damage_rating, support_rating, time_played, win_rate, kd
 
@@ -474,78 +637,8 @@ def process_get_content(battle_tag: str, owner_name: str, token: str):
     # it happens when could not get blizzard page
     except KeyError:
         if user_want_stop is not True:
+
+            # add a battle-tag to further output a single error with multiple or single battle-tags
             error_battle_tags.append(battle_tag)
+
         return
-
-
-def open_settings_window(window: Tk, path: str):
-    """Setting window"""
-
-    global max_workers
-
-    # set window-setting
-    settings_window = tk.Toplevel(window)
-    settings_window.title("Settings")
-    settings_window.resizable(False, False)  # prevent window resizing
-    settings_window.attributes('-topmost', True)  # window on top
-    settings_window.grab_set()  # make the settings window modal
-
-    # set size
-    settings_window_width = 300
-    settings_window_height = 150
-    setting_screen_width = settings_window.winfo_screenwidth()
-    setting_screen_height = settings_window.winfo_screenheight()
-    setting_x_cord = int((setting_screen_width / 2) - (settings_window_width / 2))
-    setting_y_cord = int((setting_screen_height / 2) - (settings_window_height / 2))
-    settings_window.geometry(f"{settings_window_width}x{settings_window_height}+{setting_x_cord}+{setting_y_cord}")
-
-    # close window
-    settings_window.protocol("WM_DELETE_WINDOW", settings_window.destroy)
-
-    # empty cell for top indent
-    empty_label_top = tk.Label(settings_window)
-    empty_label_top.grid(row=0, column=0)
-
-    # text "Number of requests" and field for entering number
-    label = tk.Label(settings_window, text="Number of requests")
-    label.grid(row=1, column=0, padx=5)
-    num_requests_var = tk.StringVar(value=str(max_workers))
-    entry = tk.Spinbox(settings_window, from_=1, to=6, textvariable=num_requests_var, width=5)
-    entry.grid(row=1, column=1, padx=5)
-
-    # button save
-    save_button_width = 8
-    x_button = settings_window_width // 2
-    y_button = settings_window_height - 30  # indent down
-    setting_save_button = ttk.Button(settings_window, text="Save", width=save_button_width, command=lambda: settings_save_click())
-    setting_save_button.place(x=x_button, y=y_button, anchor='center')
-
-    # top right buttons style
-    settings_window.wm_attributes("-toolwindow", 1) if tk.TkVersion >= 8.5 and sys.platform.startswith('win') else None
-
-    def settings_save_click():
-        """Save max_workers value and destroy window"""
-
-        global max_workers
-        max_workers = int(num_requests_var.get())
-        overwriting_file(max_workers_bool=True, path=path)
-        settings_window.destroy()
-
-
-def exit_main_window(text_widget: Text, path: str):
-    """If you forgot to save the file, you are prompted to do so"""
-
-    # get battle tags from file
-    battle_tags_file = read_file(path=path).get("Battle-tags", [])
-
-    # get battle-tags from text-widget
-    data = text_widget.get('1.0', tk.END).strip()
-    battle_tags_widget = [tag.strip() for tag in data.split(",")]  # split data by commas, remove extra spaces in each battle-tag
-
-    # question: save text or not if text-widget content and file content different
-    if set(battle_tags_file) != set(battle_tags_widget):
-        if messagebox.askquestion(title='Exit', message='Are you want to save your battle-tags list?') == 'yes':
-            save_button_click(text_widget=text_widget, path=path)
-
-    # close
-    os.kill(os.getpid(), signal.SIGTERM)

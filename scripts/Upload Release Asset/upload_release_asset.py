@@ -2,7 +2,7 @@ import os
 import subprocess
 import requests
 
-from Overwatch_Rank_Tracker import token, owner_name, repo_name
+from Overwatch_Rank_Tracker import OverwatchRankTracker
 from build_and_archive import zip_file_path, project_path
 
 
@@ -13,7 +13,7 @@ os.chdir(project_path)
 def get_new_tag(headers):
     """Gets the last tag and increments it"""
 
-    url = f"https://api.github.com/repos/{owner_name}/{repo_name}/tags"
+    url = f"https://api.github.com/repos/{OverwatchRankTracker.owner_name}/{OverwatchRankTracker.repo_name}/tags"
     response_get_latest_tag = requests.get(url=url, headers=headers)
 
     # error handling
@@ -63,15 +63,15 @@ def create_release(tag, headers, release_description: str):
     """Creates a release"""
 
     # get latest release description
-    response = requests.get(f"https://api.github.com/repos/{owner_name}/{repo_name}/releases/latest")
+    response = requests.get(f"https://api.github.com/repos/{OverwatchRankTracker.owner_name}/{OverwatchRankTracker.repo_name}/releases/latest")
     latest_release_description = response.json()["body"]
 
     # comparing releases without the first line
     if latest_release_description.strip().split('\n')[1:] == release_description.strip().split('\n')[1:]:
         raise Exception("Error when creating a release. Such a release already exists. The title of the release is the same as the previous one.")
 
-    data = {"owner": owner_name, "repo": repo_name, "tag_name": tag}
-    create_release_url = f"https://api.github.com/repos/{owner_name}/{repo_name}/releases"
+    data = {"owner": OverwatchRankTracker.owner_name, "repo": OverwatchRankTracker.repo_name, "tag_name": tag}
+    create_release_url = f"https://api.github.com/repos/{OverwatchRankTracker.owner_name}/{OverwatchRankTracker.repo_name}/releases"
     response = requests.post(url=create_release_url, json=data, headers=headers)
     release_id = response.json()["id"]
 
@@ -91,7 +91,7 @@ def describe_release(tag, release_id, headers, release_description):
     """Creates a description of the release"""
 
     update_data = {"body": release_description}
-    update_release_url = f"https://api.github.com/repos/{owner_name}/{repo_name}/releases/{release_id}"
+    update_release_url = f"https://api.github.com/repos/{OverwatchRankTracker.owner_name}/{OverwatchRankTracker.repo_name}/releases/{release_id}"
     response = requests.patch(update_release_url, json=update_data, headers=headers)
 
     if response.status_code != 200:
@@ -104,7 +104,7 @@ def describe_release(tag, release_id, headers, release_description):
 def change_release_name(tag, headers, release_id):
     """Creates a title for the release"""
 
-    edit_release_url = f"https://api.github.com/repos/{owner_name}/{repo_name}/releases/{release_id}"
+    edit_release_url = f"https://api.github.com/repos/{OverwatchRankTracker.owner_name}/{OverwatchRankTracker.repo_name}/releases/{release_id}"
     data = {"name": tag}
     response = requests.patch(edit_release_url, json=data, headers=headers)
 
@@ -133,7 +133,7 @@ def delete_release_and_tag(tag, release_id, headers):
     """Deletes the release"""
 
     # delete release
-    delete_release_url = f"https://api.github.com/repos/{owner_name}/{repo_name}/releases/{release_id}"
+    delete_release_url = f"https://api.github.com/repos/{OverwatchRankTracker.owner_name}/{OverwatchRankTracker.repo_name}/releases/{release_id}"
     response_delete_release = requests.delete(delete_release_url, headers=headers)
 
     # error handling
@@ -141,7 +141,7 @@ def delete_release_and_tag(tag, release_id, headers):
         raise Exception(f"Failed to delete release, error code {response_delete_release.status_code}.")
 
     # delete tag
-    delete_tag_url = f"https://api.github.com/repos/{owner_name}/{repo_name}/git/refs/tags/{tag}"
+    delete_tag_url = f"https://api.github.com/repos/{OverwatchRankTracker.owner_name}/{OverwatchRankTracker.repo_name}/git/refs/tags/{tag}"
     response_delete_tag = requests.delete(delete_tag_url, headers=headers)
 
     # error handling
@@ -154,7 +154,7 @@ def delete_release_and_tag(tag, release_id, headers):
 def main():
 
     # variables
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github.v3+json", "Content-Type": "application/zip"}
+    headers = {"Authorization": f"Bearer {OverwatchRankTracker.token}", "Accept": "application/vnd.github.v3+json", "Content-Type": "application/zip"}
     new_tag = get_new_tag(headers=headers)
     release_description = generate_release_description(tag=new_tag)
 

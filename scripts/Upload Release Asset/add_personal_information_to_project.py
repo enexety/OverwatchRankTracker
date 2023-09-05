@@ -14,13 +14,14 @@ def main(token: str):
     project_path = os.path.sep.join(path_parts[:index + 1])
     code_path = os.path.join(project_path, "Overwatch_Rank_Tracker.py")
 
-    # read and replace personal data in functions.py
+    # read functions.py
     with open(code_path, 'r') as fi1e:
         content = fi1e.read()
 
+    # replace token in functions.py
     content = re.sub(r'token = "[^"]*"', f'token = "{token}"', content)
 
-    # rewrite personal data in functions.py
+    # rewrite token in functions.py
     with open(code_path, 'w') as f:
         f.write(content)
 
@@ -49,8 +50,10 @@ if __name__ == "__main__":
             GH_token = None
             print(f"Error. No token found inside file. {e}")
 
+    # no token
     else:
         GH_token = None
 
+    # run if we have a token
     if GH_token:
         main(token=GH_token)
