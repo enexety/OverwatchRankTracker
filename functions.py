@@ -60,7 +60,7 @@ def check_for_updates(owner_name: str, repo_name: str, current_version: str, tok
             if question:
 
                 # run auto-update
-                subprocess.run(['Updater.exe'])
+                subprocess.Popen(['Updater.exe'], shell=True)
 
                 # finishing the main process
                 sys.exit()

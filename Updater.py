@@ -6,9 +6,7 @@ import requests
 from concurrent.futures import ThreadPoolExecutor
 import tkinter as tk
 
-
-owner_name = 'enexety'
-repo_name = 'Overwatch_Rank_Tracker'
+from Overwatch_Rank_Tracker import OverwatchRankTracker
 
 
 def main():
@@ -20,7 +18,7 @@ def main():
     try:
 
         # request for the latest release version
-        response = requests.get(f"https://api.github.com/repos/{owner_name}/{repo_name}/releases/latest")
+        response = requests.get(f"https://api.github.com/repos/{OverwatchRankTracker.owner_name}/{OverwatchRankTracker.repo_name}/releases/latest")
 
     except requests.exceptions.ConnectionError:
         messagebox.showerror("Connection error", "Internet connection problem.")
