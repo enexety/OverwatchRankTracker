@@ -151,7 +151,7 @@ class ConsoleManager:
                     elif userChoice.lower() == 'y':
                         replacing_commit_message = input('\nCommands:'
                                                          "\n1. Back\n"
-                                                         '\nAre you want to change last commit message? (y/n): ')
+                                                         '\nCommit message: ')
 
                         # user wants to finish
                         if replacing_commit_message == '1':

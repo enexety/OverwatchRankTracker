@@ -9,7 +9,7 @@ import FileManager
 
 class MainWindow:
 
-    def __init__(self, logManager):
+    def __init__(self, logManager=None):
         self.logManager = logManager
         self.main_window = None
         self.widgetManager = None
@@ -19,7 +19,7 @@ class MainWindow:
         """Start the main window and create everything you need on it: frames, buttons, widgets, custom closing."""
 
         # configure window
-        self.__create_and_configure_window()
+        self.create_and_configure_window()
 
         # set settings
         self.fileManager = FileManager.FileManager()
@@ -33,7 +33,7 @@ class MainWindow:
 
         # set frame and buttons
         buttonManager = ButtonManager.ButtonManager(mainWindow=self)
-        buttonManager.set_button_frame(main_window=self.main_window)
+        buttonManager.set_button_frame()
         buttonManager.set_buttons()
 
         # custom close
@@ -42,7 +42,7 @@ class MainWindow:
         # launch window
         self.main_window.mainloop()
 
-    def __create_and_configure_window(self):
+    def create_and_configure_window(self):
         """Create: main window, title, style, centering, logo."""
 
         # create
@@ -50,7 +50,6 @@ class MainWindow:
         self.main_window.title('Overwatch Rank Tracker')
 
         # set style
-        self.main_window.configure(bg='#2B2B2B')
         style = ttk.Style(self.main_window)
         style.theme_use("clam")
         style.configure('Treeview', background='#2B2B2B', foreground="white", fieldbackground="#2B2B2B")

@@ -19,10 +19,10 @@ class ButtonManager:
         self.private_profiles = []
         self.error_battle_tags = []
 
-    def set_button_frame(self, main_window):
+    def set_button_frame(self):
         """Creates a frame for the buttons."""
 
-        self.button_frame = tkinter.Frame(main_window, bg='#2B2B2B')
+        self.button_frame = tkinter.Frame(self.mainWindow.main_window, bg='#2B2B2B')
         self.button_frame.pack(side='bottom', fill='x')
 
     def set_buttons(self):

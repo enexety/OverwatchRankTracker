@@ -1,16 +1,17 @@
 import configparser
 import os
+import sys
 
 import ConsoleManager
 import TokenManager
 
 
-class ReleaseCreator:
+class ProjectManager:
 
     def __init__(self):
 
         # get paths
-        self.project_directory_path = os.path.abspath(os.path.join(os.path.abspath(__file__), '../../..'))
+        self.project_directory_path = os.path.abspath(os.path.join(sys.argv[0], '../../..'))
         self.zip_file_path = os.path.join(self.project_directory_path, "Overwatch Rank Tracker.zip")
         config_file_path = os.path.join(self.project_directory_path, 'resources', 'config.ini')
 
@@ -37,5 +38,5 @@ class ReleaseCreator:
 
 
 if __name__ == "__main__":
-    releaseCreator = ReleaseCreator()
-    releaseCreator.run()
+    projectManager = ProjectManager()
+    projectManager.run()

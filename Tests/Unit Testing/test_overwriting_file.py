@@ -2,7 +2,7 @@ import os
 import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.abspath(__file__), '../../../sources/Overwatch Rank Tracker')))
-import FileManager  # noqa: E402. It imports it and recognizes it, I don't know why the Python interpreter is flagging an error
+import FileManager  # noqa: E402
 
 
 """
