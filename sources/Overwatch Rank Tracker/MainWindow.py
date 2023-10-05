@@ -28,11 +28,10 @@ class MainWindow:
         # set frame and widgets
         self.widgetManager = WidgetManager.WidgetManager()
         self.widgetManager.set_widget_frame(main_window=self.main_window)
-        self.widgetManager.create_loading_text()
         self.widgetManager.create_text_widget(fileManager=self.fileManager)
 
         # set frame and buttons
-        buttonManager = ButtonManager.ButtonManager(mainWindow=self)
+        buttonManager = ButtonManager.ButtonManager(mainWindow=self, widgetManager=self.widgetManager)
         buttonManager.set_button_frame()
         buttonManager.set_buttons()
 

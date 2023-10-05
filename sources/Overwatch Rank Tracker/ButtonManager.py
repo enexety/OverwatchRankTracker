@@ -10,13 +10,11 @@ import requests
 
 class ButtonManager:
 
-    def __init__(self, mainWindow):
+    def __init__(self, mainWindow, widgetManager):
         self.mainWindow = mainWindow
+        self.widgetManager = widgetManager
         self.button_frame = None
         self.user_want_stop = False
-        self.public_profiles = []
-        self.limited_profiles = []
-        self.private_profiles = []
         self.error_battle_tags = []
 
     def set_button_frame(self):
@@ -137,9 +135,6 @@ class ButtonManager:
         # to avoid problems in further clicks
         self.user_want_stop = False
         self.error_battle_tags.clear()
-        self.private_profiles.clear()
-        self.public_profiles.clear()
-        self.limited_profiles.clear()
 
         # block button
         check_button.configure(state='disabled')
@@ -161,25 +156,21 @@ class ButtonManager:
                 # battle-tags list
                 battle_tags = [tag.strip() for tag in self.mainWindow.widgetManager.text_widget_content.split(",")]
 
-                # delete text or table widget
-                if not self.user_want_stop and type(self.mainWindow.widgetManager.current_widget) is Text or ttk.Treeview:
-                    self.mainWindow.widgetManager.destroy_widget()
+                # push information on table
+                try:
+                    self.__delegate_insertion(battle_tags=battle_tags)
 
-                    # push information on table
-                    try:
-                        self.__get_content_and_push(battle_tags=battle_tags)
+                # no internet connection - to bring it all back and give an error
+                except requests.exceptions.ConnectionError:
 
-                    # no internet connection - to bring it all back and give an error
-                    except requests.exceptions.ConnectionError:
+                    # revert the text widget back
+                    self.mainWindow.widgetManager.create_text_widget(fileManager=self.mainWindow.fileManager)
 
-                        # revert the text widget back
-                        self.mainWindow.widgetManager.create_text_widget(fileManager=self.mainWindow.fileManager)
+                    # change button back
+                    save_button.configure(text='Save', command=lambda: self.__save_button_click())
 
-                        # change button back
-                        save_button.configure(text='Save', command=lambda: self.__save_button_click())
-
-                        # message error
-                        messagebox.showerror("Connection Error", "Internet connection problem.")
+                    # message error
+                    messagebox.showerror("Connection Error", "Internet connection problem.")
 
             # no battle-tags - raise error
             else:
@@ -203,15 +194,21 @@ class ButtonManager:
         # reset flag
         self.user_want_stop = False
 
-    def __get_content_and_push(self, battle_tags: list):
-        """Getting the information for each of the battle-tags and adding this to table-widget in the correct order."""
+    def __delegate_insertion(self, battle_tags: list):
+        """Delegate insertion into a table."""
 
         # not to create more than one identical error window
         error_occurred = False
 
+        if self.user_want_stop:
+            return
+
+        # create table widget
+        self.mainWindow.widgetManager.create_table_widget()
+
         # multithreaded request retrieval
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.mainWindow.fileManager.max_workers) as executor:
-            futures = [executor.submit(self.__process_and_sort_account, battle_tag) for battle_tag in battle_tags]
+            futures = [executor.submit(self.__push_single_account_info, battle_tag) for battle_tag in battle_tags]
 
             if self.user_want_stop:
                 return
@@ -236,45 +233,11 @@ class ButtonManager:
                                                                                                         '1. Problem in the server.\n'
                                                                                                         '2. Check if you added the battle tags correctly.\n'))
 
-        if self.user_want_stop:
-            return
+        # sorting so that private and limit profiles are at the bottom
+        self.widgetManager.sort_table(column_name='Status', reverse=False, column_index=0)
 
-        self.mainWindow.widgetManager.create_table_widget()
-
-        # push content in the right order
-        for unit in self.public_profiles:
-            if self.user_want_stop:
-                return
-            self.mainWindow.widgetManager.current_widget.insert('', tkinter.END, values=unit, tags=['Public'])
-        for unit in self.limited_profiles:
-            if self.user_want_stop:
-                return
-            self.mainWindow.widgetManager.current_widget.insert('', tkinter.END, values=unit, tags=['Limited'])
-        for unit in self.private_profiles:
-            if self.user_want_stop:
-                return
-            self.mainWindow.widgetManager.current_widget.insert('', tkinter.END, values=unit, tags=['Private'])
-
-    def __process_and_sort_account(self, one_battle_tag: str):
-        """Sort an account by status into a separate list."""
-
-        information = self.__get_and_process_single_account_info(battle_tag=one_battle_tag)
-
-        # if needed exit
-        if self.user_want_stop:
-            return
-
-        # record 3 different types to the relevant lists
-        if information:
-            if information[0] == 'Public':
-                self.public_profiles.append(information)
-            elif information[0] == 'Limited':
-                self.limited_profiles.append(information)
-            else:
-                self.private_profiles.append(information)
-
-    def __get_and_process_single_account_info(self, battle_tag: str):
-        """Getting information from API on one account and then processing it."""
+    def __push_single_account_info(self, battle_tag: str):
+        """Retrieve and push information for a single battle-tag account into the table."""
 
         # variables
         tank_rating = '-'
@@ -342,8 +305,6 @@ class ButtonManager:
                             support_division_tier = str(response['summary']['competitive']['pc']['support']['tier'])
                             support_rating = support_division + '-' + support_division_tier
 
-                        return status, nickname, season, tank_rating, damage_rating, support_rating, time_played, win_rate, kd
-
                     # unexpected error
                     except Exception as error:
                         if self.user_want_stop:
@@ -355,15 +316,16 @@ class ButtonManager:
                         # error window
                         ThreadPoolExecutor().submit(lambda e=error: messagebox.showerror(title=f'{battle_tag}', message=f'Sorry, something went wrong. {e}'))
 
-                # no competitive
-                else:
-                    status = 'Limited'
-                    return status, nickname, season, tank_rating, damage_rating, support_rating, time_played, win_rate, kd
+                        return
 
-            # profile is closed
-            else:
-                return status, nickname, season, tank_rating, damage_rating, support_rating, time_played, win_rate, kd
+            if self.user_want_stop:
+                return
 
+            # push data to table
+            self.mainWindow.widgetManager.current_widget.insert(parent='',
+                                                                index=tkinter.END,
+                                                                values=[status, nickname, season, tank_rating, damage_rating, support_rating, time_played, win_rate, kd],
+                                                                tags=[status])
         # it happens when could not get blizzard page
         except KeyError:
             if self.user_want_stop is not True:
