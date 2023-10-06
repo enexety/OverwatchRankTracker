@@ -39,6 +39,7 @@ class BuildAndArchiveManager:
                         '--specpath', self.project_directory_path,
                         '--workpath', build_path,
                         "--onefile",
+                        "--noconsole",
                         "--name", "Updater"])
 
         # add example settings file to dist

@@ -7,7 +7,7 @@ class OverwatchRankTracker:
     """Base class, runs: logging, update, main application window. It also stores important variables for working with repository and GitHub Gists."""
 
     def __init__(self):
-        self.version = "v0.0.8"
+        self.version = "v0.0.9"
         self.token = ""
 
         # I do not use variables from config because I do not want to have unnecessary files after building project

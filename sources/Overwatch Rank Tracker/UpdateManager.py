@@ -18,7 +18,6 @@ class UpdateManager:
         self.repo_name = repo_name
 
         self.current_folder_path = None
-        self.parent_folder_path = None
         self.zip_file_path = None
         self.current_folder_name = None
 
@@ -100,7 +99,7 @@ class UpdateManager:
             # replacing old files with downloaded files
             self.__unpacking_archive()
 
-            # deleting an archive
+            # delete archive
             os.remove(self.zip_file_path)
 
             # destroy window
@@ -146,8 +145,7 @@ class UpdateManager:
     def __set_paths(self):
         """Writing paths for future unpacking of the file in the required directory."""
 
-        self.current_folder_path = sys.argv[0]
-        self.parent_folder_path = os.path.abspath(os.path.join(self.current_folder_path, os.pardir))
+        self.current_folder_path = os.path.dirname(sys.argv[0])
         self.zip_file_path = os.path.join(self.current_folder_path, 'latest_release.zip')
         self.current_folder_name = os.path.basename(self.current_folder_path)
 
@@ -182,10 +180,18 @@ class UpdateManager:
         try:
             with zipfile.ZipFile(self.zip_file_path, 'r') as zip_ref:
                 for file_info in zip_ref.infolist():
-                    if file_info.filename != f'{self.current_folder_name}/settings_and_battle_tags.json':
-                        zip_ref.extract(file_info.filename, self.parent_folder_path)
-                    if file_info.filename == f'{self.current_folder_name}/Updater.exe':
-                        pass
+
+                    # define file name without path
+                    filename = os.path.basename(file_info.filename)
+
+                    # extract files to the current folder without creating a subfolder
+                    if filename in ["Overwatch Rank Tracker.exe", 'settings_and_battle_tags.json']:
+                        if filename == 'settings_and_battle_tags.json':
+                            if os.path.exists(os.path.join(self.current_folder_path, 'settings_and_battle_tags.json')):
+                                continue
+                        extracted_path = os.path.join(self.current_folder_path, filename)
+                        with open(extracted_path, 'wb') as extracted_file:
+                            extracted_file.write(zip_ref.read(file_info.filename))
 
             # success
             messagebox.showinfo(title="Update", message="Update downloaded successfully.")
@@ -203,4 +209,4 @@ if __name__ == "__main__":
     updateManager.update()
 
     # launching the main application back
-    subprocess.run(['Overwatch Rank Tracker.exe'])
+    subprocess.Popen(['Overwatch Rank Tracker.exe'], shell=True)
