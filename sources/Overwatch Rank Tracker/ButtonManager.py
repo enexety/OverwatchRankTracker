@@ -7,6 +7,8 @@ from tkinter import messagebox, Button, ttk, Text
 import concurrent
 import requests
 
+import ToolTip
+
 
 class ButtonManager:
 
@@ -76,8 +78,12 @@ class ButtonManager:
         empty_label_top.grid(row=0, column=0)
 
         # "Number of requests" text
-        label = tkinter.Label(settings_window, text="Number of requests")
+        label = tkinter.Label(settings_window, text="Number of requests : ")
         label.grid(row=1, column=0, padx=5)
+
+        # tooltip for "Number of requests" text
+        ToolTip.Tooltip(label, "This is the number of simultaneous requests to the server.\n"
+                               "From this value will be different speed of program execution.")
 
         # "Number of requests" field for entering number
         num_requests_var = tkinter.StringVar(value=str(self.mainWindow.fileManager.max_workers))
@@ -267,7 +273,8 @@ class ButtonManager:
             status = str(response['summary']['privacy']).capitalize()
             if status == 'Public':
 
-                if type(response['summary']['competitive']) is dict:  # this return "None" if no competitive
+                # it has competitive stats
+                if type(response['summary']['competitive']) is dict:
                     try:
 
                         # stats
@@ -317,6 +324,10 @@ class ButtonManager:
                         ThreadPoolExecutor().submit(lambda e=error: messagebox.showerror(title=f'{battle_tag}', message=f'Sorry, something went wrong. {e}'))
 
                         return
+
+                # profile is public but no competitive stats, it means profile is limited
+                else:
+                    status = "Limited"
 
             if self.user_want_stop:
                 return
